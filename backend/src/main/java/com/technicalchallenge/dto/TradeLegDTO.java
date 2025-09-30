@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.util.List;
 
@@ -19,7 +18,6 @@ public class TradeLegDTO {
     private Long legId;
 
     @NotNull(message = "Notional is required")
-    @Positive(message = "Notional must be positive")
     private BigDecimal notional;
 
     private Double rate;
