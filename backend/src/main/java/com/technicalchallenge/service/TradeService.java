@@ -133,7 +133,10 @@ public class TradeService {
         } else if (tradeDTO.getBookId() != null) {
             bookRepository.findById(tradeDTO.getBookId())
                     .ifPresent(trade::setBook);
+        } else {
+            throw new RuntimeException("Book and Counterparty are required");
         }
+
 
         // Populate Counterparty
         if (tradeDTO.getCounterpartyName() != null) {
@@ -142,7 +145,10 @@ public class TradeService {
         } else if (tradeDTO.getCounterpartyId() != null) {
             counterpartyRepository.findById(tradeDTO.getCounterpartyId())
                     .ifPresent(trade::setCounterparty);
+        } else {
+            throw new RuntimeException("Book and Counterparty are required");
         }
+
 
         // Populate TradeStatus
         if (tradeDTO.getTradeStatus() != null) {

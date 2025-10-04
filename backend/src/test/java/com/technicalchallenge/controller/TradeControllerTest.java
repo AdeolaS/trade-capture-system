@@ -168,12 +168,16 @@ public class TradeControllerTest {
         invalidDTO.setCounterpartyName("TestCounterparty");
         // Book name is purposely missing
 
+        doThrow(new RuntimeException("Book and Counterparty are required"))
+            .when(tradeService).populateReferenceDataByName(any(Trade.class),any(TradeDTO.class));
+
+
         // When/Then
         mockMvc.perform(post("/api/trades")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidDTO)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Book and Counterparty are required"));
+                .andExpect(content().string("Error creating trade: Book and Counterparty are required"));
 
         verify(tradeService, never()).saveTrade(any(Trade.class), any(TradeDTO.class));
     }
