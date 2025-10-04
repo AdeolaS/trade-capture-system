@@ -214,7 +214,7 @@ public class TradeControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(tradeDTO)))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string("Trade ID in path must match Trade ID in request body"));
+                .andExpect(content().string("Error updating trade: Trade ID in path must match Trade ID in request body"));
 
         verify(tradeService, never()).saveTrade(any(Trade.class), any(TradeDTO.class));
     }
