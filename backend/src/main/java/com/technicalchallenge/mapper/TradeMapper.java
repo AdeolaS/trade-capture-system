@@ -90,6 +90,9 @@ public class TradeMapper {
         if (dto == null) {
             return null;
         }
+        if (dto.getTradeDate() == null) {
+            throw new RuntimeException("Trade date is required");
+        }
 
         Trade trade = new Trade();
         trade.setId(dto.getId());
