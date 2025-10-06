@@ -1,6 +1,7 @@
 package com.technicalchallenge.service;
 
 import com.technicalchallenge.dto.BookDTO;
+import com.technicalchallenge.mapper.BookMapper;
 import com.technicalchallenge.model.Book;
 import com.technicalchallenge.repository.BookRepository;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,8 @@ import static org.mockito.Mockito.*;
 public class BookServiceTest {
     @Mock
     private BookRepository bookRepository;
+    @Mock
+    private BookMapper bookMapper;
     @InjectMocks
     private BookService bookService;
 
