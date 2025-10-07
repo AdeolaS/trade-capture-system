@@ -187,7 +187,7 @@ class TradeServiceTest {
         when(tradeStatusRepository.findByTradeStatus("AMENDED")).thenReturn(Optional.of(new com.technicalchallenge.model.TradeStatus()));
         when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
 
-        //when(tradeLegRepository.save(any(TradeLeg.class))).thenReturn(tradeLeg);
+        when(tradeLegRepository.save(any(TradeLeg.class))).thenReturn(tradeLeg);
 
         // When
         Trade result = tradeService.amendTrade(100001L, tradeDTO);
