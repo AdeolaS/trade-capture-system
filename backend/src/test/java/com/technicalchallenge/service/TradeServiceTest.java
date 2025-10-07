@@ -2,9 +2,14 @@ package com.technicalchallenge.service;
 
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
+import com.technicalchallenge.model.Book;
+import com.technicalchallenge.model.Counterparty;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.model.TradeLeg;
+import com.technicalchallenge.model.TradeStatus;
+import com.technicalchallenge.repository.BookRepository;
 import com.technicalchallenge.repository.CashflowRepository;
+import com.technicalchallenge.repository.CounterpartyRepository;
 import com.technicalchallenge.repository.TradeLegRepository;
 import com.technicalchallenge.repository.TradeRepository;
 import com.technicalchallenge.repository.TradeStatusRepository;
@@ -21,6 +26,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,6 +45,12 @@ class TradeServiceTest {
     private TradeStatusRepository tradeStatusRepository;
 
     @Mock
+    private BookRepository bookRepository;
+
+    @Mock
+    private CounterpartyRepository counterpartyRepository;
+
+    @Mock
     private AdditionalInfoService additionalInfoService;
 
     @InjectMocks
@@ -46,6 +58,11 @@ class TradeServiceTest {
 
     private TradeDTO tradeDTO;
     private Trade trade;
+    private Book book;
+    private Counterparty counterparty;
+    private TradeStatus tradeStatus;
+    private TradeLeg tradeLeg;
+
 
     @BeforeEach
     void setUp() {
@@ -66,16 +83,41 @@ class TradeServiceTest {
 
         tradeDTO.setTradeLegs(Arrays.asList(leg1, leg2));
 
+        book = new Book();
+        book.setId(123L);
+        book.setBookName("Test Book");
+
+        counterparty = new Counterparty();
+        counterparty.setId(345L);
+        counterparty.setName("Test Counterparty");
+
+        tradeDTO.setBookId(book.getId());
+        tradeDTO.setCounterpartyId(counterparty.getId());
+
         trade = new Trade();
         trade.setId(1L);
         trade.setTradeId(100001L);
+
+        tradeStatus = new TradeStatus();
+        tradeStatus.setId(202L);
+        tradeStatus.setTradeStatus("NEW");
+
+        tradeLeg = new TradeLeg();
+        tradeLeg.setLegId(303L);
+
     }
 
     @Test
     void testCreateTrade_Success() {
         // Given
+        when(bookRepository.findById(123L)).thenReturn(Optional.of(book));
+        when(counterpartyRepository.findById(345L)).thenReturn(Optional.of(counterparty));
+        when(tradeStatusRepository.findByTradeStatus("NEW")).thenReturn(Optional.of(tradeStatus));
+
         when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
 
+        when(tradeLegRepository.save(any(TradeLeg.class))).thenReturn(tradeLeg);
+        
         // When
         Trade result = tradeService.createTrade(tradeDTO);
 
