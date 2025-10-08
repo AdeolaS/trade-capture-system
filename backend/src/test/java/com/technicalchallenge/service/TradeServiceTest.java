@@ -3,7 +3,9 @@ package com.technicalchallenge.service;
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
 import com.technicalchallenge.model.Book;
+import com.technicalchallenge.model.Cashflow;
 import com.technicalchallenge.model.Counterparty;
+import com.technicalchallenge.model.Schedule;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.model.TradeLeg;
 import com.technicalchallenge.model.TradeStatus;
@@ -16,6 +18,8 @@ import com.technicalchallenge.repository.TradeStatusRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -210,19 +214,34 @@ class TradeServiceTest {
         assertTrue(exception.getMessage().contains("Trade not found"));
     }
 
-    // This test has a deliberate bug for candidates to find and fix
-    @Test
-    void testCashflowGeneration_MonthlySchedule() {
-        // This test method is incomplete and has logical errors
-        // Candidates need to implement proper cashflow testing
+    @ParameterizedTest
+    // Input values for test. 
+    @CsvSource({"2025,3,4", "2025,5,8", "2026,1,24", "2027,3,52"})
+    void testCashflowGeneration_MonthlySchedule(int maturityYear, int maturityMonth, int invocationsCount) {
 
-        // Given - setup is incomplete
-        TradeLeg leg = new TradeLeg();
-        leg.setNotional(BigDecimal.valueOf(1000000));
+        // Given
+        Schedule schedule = new Schedule();
+        schedule.setId(111L);
+        schedule.setSchedule("1M");
+        tradeLeg.setNotional(BigDecimal.valueOf(1000000));
+        tradeLeg.setCalculationPeriodSchedule(schedule);
 
-        // When - method call is missing
+        tradeDTO.setTradeStartDate(LocalDate.of(2025, 1, 17));
+        tradeDTO.setTradeMaturityDate(LocalDate.of(maturityYear, maturityMonth, 17));
 
-        // Then - assertions are wrong/missing
-        assertEquals(1, 12); // This will always fail - candidates need to fix
+        when(bookRepository.findById(123L)).thenReturn(Optional.of(book));
+        when(counterpartyRepository.findById(345L)).thenReturn(Optional.of(counterparty));
+        when(tradeStatusRepository.findByTradeStatus("NEW")).thenReturn(Optional.of(tradeStatus));
+
+        when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
+
+        when(tradeLegRepository.save(any(TradeLeg.class))).thenReturn(tradeLeg);
+        
+        // When
+        tradeService.createTrade(tradeDTO);
+        
+        // Then verify cashflowRepository.save has been called the correct number of times
+        // There are two trade legs and a cashflow is generated for each for evey month
+        verify(cashflowRepository, times(invocationsCount)).save(any(Cashflow.class));
     }
 }
