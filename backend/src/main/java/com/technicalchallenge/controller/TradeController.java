@@ -19,6 +19,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 
 import jakarta.validation.Valid;
+
+import java.time.LocalDate;
 import java.util.List;
 
 import org.slf4j.Logger;
@@ -36,6 +38,31 @@ public class TradeController {
     @Autowired
     private TradeMapper tradeMapper;
 
+    @GetMapping("/search")
+    @Operation(summary = "Search trades",
+               description = "Retrieves a list of trades in the system by criteria such as counterparty, book, trader, status, date ranges")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved trades",
+                    content = @Content(mediaType = "application/json",
+                                     schema = @Schema(implementation = TradeDTO.class))),
+        @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public List<TradeDTO> searchTrades(
+            @RequestParam (required = false) LocalDate earliestTradeDate, 
+            @RequestParam (required = false) LocalDate latestTradeDate, 
+            @RequestParam (required = false) Long tradeStatusId, 
+            @RequestParam (required = false) Long traderId, 
+            @RequestParam (required = false) Long bookId, 
+            @RequestParam (required = false) Long counterpartyId) {
+        logger.info("Fetching all trades");
+        
+        return tradeService.searchTrades(earliestTradeDate, latestTradeDate, tradeStatusId, traderId, bookId, counterpartyId)
+            .stream()
+            .map(tradeMapper::toDto)
+            .toList();
+        
+        
+    }
     @GetMapping
     @Operation(summary = "Get all trades",
                description = "Retrieves a list of all trades in the system. Returns comprehensive trade information including legs and cashflows.")
