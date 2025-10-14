@@ -11,6 +11,7 @@ import cz.jirutka.rsql.parser.ast.LogicalNode;
 import cz.jirutka.rsql.parser.ast.LogicalOperator;
 import cz.jirutka.rsql.parser.ast.Node;
 
+// Specification builder that constructs specifications out of each of the nodes we visit.
 public class GenericRsqlSpecBuilder<T> {
 
     public Specification<T> createSpecification(Node node) {

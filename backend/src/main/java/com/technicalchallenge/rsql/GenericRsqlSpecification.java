@@ -12,6 +12,7 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Path;
 
+// Dynamically builds WHERE clauses for any entity type T at runtime
 public class GenericRsqlSpecification<T> implements Specification<T> {
 
     private String property;
@@ -24,68 +25,86 @@ public class GenericRsqlSpecification<T> implements Specification<T> {
         this.arguments = arguments;
     }
 
+    //This method figures out how to reach the path being filtered
+    // Root<T> root is the root entity being queried. eg. Root<Trade>
     private Path<?> getPath(Root<T> root, String property) {
+
+        // for nested properties like counterparty.name...
         if (property.contains(".")) {
+            //splits string at the full stops
             String[] parts = property.split("\\.");
+
             jakarta.persistence.criteria.From<?, ?> join = root;
 
             for (int i = 0; i < parts.length - 1; i++) {
+                // perform left joins until we get to the final column
                 join = join.join(parts[i], jakarta.persistence.criteria.JoinType.LEFT);
             }
 
             return join.get(parts[parts.length - 1]);
         } else {
+            // if the property is simple e.g. tradeID
             return root.get(property);
         }
     }
 
-    @Override
-    public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder builder) {
-        Path<?> path = getPath(root, property);
-        List<Object> args = castArguments(root);
-        Object argument = args.get(0);
 
-        switch (RsqlSearchOperation.getSimpleOperator(operator)) {
-            case EQUAL:
-                if (argument instanceof String) {
-                    return builder.like(builder.lower(path.as(String.class)), argument.toString().toLowerCase().replace('*', '%'));
-                } else {
-                    return builder.equal(path, argument);
-                }
-            case NOT_EQUAL:
-                return builder.notEqual(path, argument);
-            case GREATER_THAN:
-                return builder.greaterThan(path.as(String.class), argument.toString());
-            case GREATER_THAN_OR_EQUAL:
-                return builder.greaterThanOrEqualTo(path.as(String.class), argument.toString());
-            case LESS_THAN:
-                return builder.lessThan(path.as(String.class), argument.toString());
-            case LESS_THAN_OR_EQUAL:
-                return builder.lessThanOrEqualTo(path.as(String.class), argument.toString());
-            case IN:
-                return path.in(args);
-            case NOT_IN:
-                return builder.not(path.in(args));
-            default:
-                return null;
+    @Override
+    // Build the SQL condition
+    public Predicate toPredicate(Root<T> root, CriteriaQuery<?> query, CriteriaBuilder builder) {
+        try {
+            // Get the field path and convert string arguments into correct Java type
+            Path<?> path = getPath(root, property);
+            List<Object> args = castArguments(root);
+            Object argument = args.get(0);
+
+            // Look up the operation and build a predicate with the correct criteria builder method.
+            switch (RsqlSearchOperation.getSimpleOperator(operator)) {
+                case EQUAL:
+                    if (argument instanceof String) {
+                        return builder.like(builder.lower(path.as(String.class)), argument.toString().toLowerCase().replace('*', '%'));
+                    } else {
+                        return builder.equal(path, argument);
+                    }
+                case NOT_EQUAL:
+                    return builder.notEqual(path, argument);
+                case GREATER_THAN:
+                    return builder.greaterThan(path.as(String.class), argument.toString());
+                case GREATER_THAN_OR_EQUAL:
+                    return builder.greaterThanOrEqualTo(path.as(String.class), argument.toString());
+                case LESS_THAN:
+                    return builder.lessThan(path.as(String.class), argument.toString());
+                case LESS_THAN_OR_EQUAL:
+                    return builder.lessThanOrEqualTo(path.as(String.class), argument.toString());
+                case IN:
+                    return path.in(args);
+                case NOT_IN:
+                    return builder.not(path.in(args));
+                default:
+                    return null;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Error building predicate for property: " + property + " — " + e.getMessage(), e);
         }
     }
 
+
     private List<Object> castArguments(final Root<T> root) {
-        
-        Class<? extends Object> type = root.get(property).getJavaType();
-        
-        List<Object> args = arguments.stream().map(arg -> {
+        Path<?> path = getPath(root, property);
+        Class<?> type = path.getJavaType(); 
+
+        return arguments.stream().map(arg -> {
             if (type.equals(Integer.class)) {
-               return Integer.parseInt(arg);
+                return Integer.parseInt(arg);
             } else if (type.equals(Long.class)) {
-               return Long.parseLong(arg);
+                return Long.parseLong(arg);
+            } else if (type.equals(Boolean.class)) {
+                return Boolean.parseBoolean(arg);
             } else {
                 return arg;
-            }            
+            }
         }).collect(Collectors.toList());
-
-        return args;
     }
 
     public String getProperty() {
