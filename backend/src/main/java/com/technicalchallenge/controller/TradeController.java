@@ -3,8 +3,14 @@ package com.technicalchallenge.controller;
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.mapper.TradeMapper;
 import com.technicalchallenge.model.Trade;
+import com.technicalchallenge.rsql.CustomRsqlVisitor;
 import com.technicalchallenge.service.TradeService;
+
+import cz.jirutka.rsql.parser.RSQLParser;
+import cz.jirutka.rsql.parser.ast.Node;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -38,6 +44,26 @@ public class TradeController {
     @Autowired
     private TradeMapper tradeMapper;
 
+    @GetMapping("/rsql")
+    @Operation(summary = "Get trades using RSQL",
+               description = "Retrieves a list of trades, using RSQL, in the system by criteria such as counterparty, book, trader, status, date ranges")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved trades",
+                    content = @Content(mediaType = "application/json",
+                                     schema = @Schema(implementation = TradeDTO.class))),
+        @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public List<TradeDTO> getTradesWithRSQL(@RequestParam String query) {
+        //logger.info("Fetching all trades");
+        Node rootNode = new RSQLParser().parse(query);
+        Specification<Trade> spec = rootNode.accept(new CustomRsqlVisitor<Trade>());
+        
+        return tradeService.getTradesWithRSQL(spec)
+            .stream()
+            .map(tradeMapper::toDto)
+            .toList();
+    }
+
     @GetMapping("/search")
     @Operation(summary = "Search trades",
                description = "Retrieves a list of trades in the system by criteria such as counterparty, book, trader, status, date ranges")
@@ -54,15 +80,16 @@ public class TradeController {
             @RequestParam (required = false) Long traderId, 
             @RequestParam (required = false) Long bookId, 
             @RequestParam (required = false) Long counterpartyId) {
-        logger.info("Fetching all trades");
+        //logger.info("Fetching all trades");
         
         return tradeService.searchTrades(earliestTradeDate, latestTradeDate, tradeStatusId, traderId, bookId, counterpartyId)
             .stream()
             .map(tradeMapper::toDto)
             .toList();
         
-        
     }
+
+
     @GetMapping
     @Operation(summary = "Get all trades",
                description = "Retrieves a list of all trades in the system. Returns comprehensive trade information including legs and cashflows.")

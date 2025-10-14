@@ -6,28 +6,13 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface TradeRepository extends JpaRepository<Trade, Long> {
-
-    // @Query("SELECT f FROM Flight f " + 
-    //         "WHERE f.price <= :maxBudget " +
-    //         "AND LOWER(f.departureAirport.code) = LOWER(:departureAirport) " +
-    //         "AND (:arrivalAirport IS NULL OR LOWER(f.arrivalAirport.code) = LOWER(:arrivalAirport)) " +
-    //         "AND (:departureDate IS NULL OR f.departureDate BETWEEN :earliestDate AND :latestDate)" +
-    //         "ORDER BY f.price ASC"
-    //        )
-    // public List<Flight> searchFlightsUsingArrivalAirport(
-    //     @Param ("maxBudget") double maxBudget,
-    //     @Param ("departureAirport") String departureAirport,
-    //     @Param ("arrivalAirport") String arrivalAirport,
-    //     @Param ("departureDate") LocalDate departureDate,
-    //     @Param ("earliestDate") LocalDate earliestDate,
-    //     @Param ("latestDate") LocalDate latestDate
-    // );
+public interface TradeRepository extends JpaRepository<Trade, Long>, JpaSpecificationExecutor<Trade> {
 
     @Query("""
         SELECT t FROM Trade t WHERE 

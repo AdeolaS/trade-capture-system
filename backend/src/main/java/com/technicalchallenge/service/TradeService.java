@@ -5,6 +5,7 @@ import com.technicalchallenge.dto.TradeLegDTO;
 import com.technicalchallenge.model.*;
 import com.technicalchallenge.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +58,11 @@ public class TradeService {
     private PayRecRepository payRecRepository;
     @Autowired
     private AdditionalInfoService additionalInfoService;
+
+    public List<Trade> getTradesWithRSQL(Specification<Trade> spec) {
+        //logger.info("Fetching all trades");
+        return tradeRepository.findAll(spec);
+    }
 
     public List<Trade> searchTrades(LocalDate earliestTradeDate, LocalDate latestTradeDate, Long tradeStatusId, Long traderId, Long bookId, Long counterpartyId) {
         //logger.info("Retrieving all trades");
