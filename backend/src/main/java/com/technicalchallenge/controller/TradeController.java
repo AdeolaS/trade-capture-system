@@ -10,6 +10,7 @@ import cz.jirutka.rsql.parser.RSQLParser;
 import cz.jirutka.rsql.parser.ast.Node;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -63,6 +64,26 @@ public class TradeController {
             .map(tradeMapper::toDto)
             .toList();
     }
+
+    @GetMapping("/filter")
+    @Operation(summary = "Paginate trades",
+               description = "Retrieves a list of trades in the system by criteria such as counterparty, book, trader, status, date ranges")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved paginated trades",
+                    content = @Content(mediaType = "application/json",
+                                     schema = @Schema(implementation = TradeDTO.class))),
+        @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<Page<TradeDTO>>paginateTrades(
+            @RequestParam(defaultValue = "0") int pageNum,
+            @RequestParam(defaultValue = "1") int pageSize) {
+
+        Page<Trade> pageOfTrades = tradeService.paginateTrades(pageNum, pageSize);
+        Page<TradeDTO> pageOfTradeDTOs = pageOfTrades.map(tradeMapper::toDto);
+        return ResponseEntity.ok().body(pageOfTradeDTOs);
+        
+    }
+
 
     @GetMapping("/search")
     @Operation(summary = "Search trades",

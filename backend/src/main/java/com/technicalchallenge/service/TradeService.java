@@ -5,6 +5,9 @@ import com.technicalchallenge.dto.TradeLegDTO;
 import com.technicalchallenge.model.*;
 import com.technicalchallenge.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Service;
@@ -69,6 +72,11 @@ public class TradeService {
         return tradeRepository.searchTradesUsingSearchCriteria(earliestTradeDate, latestTradeDate, tradeStatusId, traderId, bookId, counterpartyId);
     }
 
+    public Page<Trade> paginateTrades(int pageNum, int pageSize) {
+        Pageable pageable = PageRequest.of(pageNum, pageSize);
+        return tradeRepository.findAll(pageable);
+    }
+
     public List<Trade> getAllTrades() {
         logger.info("Retrieving all trades");
         return tradeRepository.findAll();
@@ -77,6 +85,60 @@ public class TradeService {
     public Optional<Trade> getTradeById(Long tradeId) {
         logger.debug("Retrieving trade by id: {}", tradeId);
         return tradeRepository.findByTradeIdAndActiveTrue(tradeId);
+    }
+
+    public void validateTradeBusinessRules(TradeDTO tradeDTO) {
+
+        if (tradeDTO.getTradeMaturityDate() != null && tradeDTO.getTradeStartDate() != null && tradeDTO.getTradeDate() != null) {
+            if (tradeDTO.getTradeMaturityDate().isBefore(tradeDTO.getTradeStartDate()) || tradeDTO.getTradeMaturityDate().isBefore(tradeDTO.getTradeDate())) {
+                throw new RuntimeException("Maturity date cannot be before start date or trade date.");
+            }
+        }
+
+        if (tradeDTO.getTradeStartDate() != null && tradeDTO.getTradeDate() != null) {
+            if (tradeDTO.getTradeStartDate().isBefore(tradeDTO.getTradeDate())) {
+                throw new RuntimeException("Start date cannot be before trade date");
+            }
+        }
+
+        if (tradeDTO.getTradeDate() != null) {
+            if (tradeDTO.getTradeDate().isBefore(LocalDate.now().minusDays(30))){
+                throw new RuntimeException("Trade date must not be more than 30 days before today's date.");
+            }
+        }
+        
+    }
+
+    public void validateTradeLegConsistency(List<TradeLegDTO> legs) {
+
+        for (TradeLegDTO leg : legs) {
+            if (leg.getLegType().equalsIgnoreCase("Floating")) {
+                if (leg.getIndexId() == null) {
+                    throw new RuntimeException("Floating legs must have an index specified");
+                }
+            }
+            if (leg.getLegType().equalsIgnoreCase("Fixed")) {
+                if (leg.getRate() == null) {
+                    throw new RuntimeException("Fixed leg must have a rate specified");
+                }
+                if (leg.getRate() <= 0.0) {
+                    throw new RuntimeException ("Fixed leg must have a rate greater than zero");
+                }
+            }
+        }
+
+        if (legs.size() != 2) {
+            throw new RuntimeException("Trade must have exactly 2 legs");
+        } else {
+            TradeLegDTO leg1 = legs.get(0);
+            TradeLegDTO leg2 = legs.get(1);
+            
+            if (leg1.getPayReceiveFlag() != null && leg2.getPayReceiveFlag() != null) {
+                if (leg1.getPayReceiveFlag().equalsIgnoreCase(leg2.getPayReceiveFlag())) {
+                    throw new RuntimeException("Both legs cannot have the same pay/receive flag — one must be PAY and the other RECEIVE");
+                }
+            }
+        }
     }
 
     @Transactional
