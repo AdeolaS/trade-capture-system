@@ -101,8 +101,24 @@ public class TradeService {
     }
 
     public Page<Trade> paginateTrades(int pageNum, int pageSize) {
+        validatePaginationParams(pageNum,pageSize);
         Pageable pageable = PageRequest.of(pageNum, pageSize);
         return tradeRepository.findAll(pageable);
+    }
+
+    public void validatePaginationParams(int pageNum, int pageSize) {
+        logger.info("Validating search parameters");
+
+        String errorMessage = "";
+        if (pageNum < 0) {
+            errorMessage += "\n Requested Page number must be non-negative";
+        }
+        if (pageSize <= 0) {
+            errorMessage += "\n Page size must be more than zero";
+        }
+        if (!errorMessage.equals("")) {
+            throw new RuntimeException(errorMessage);
+        }
     }
 
     public List<Trade> getAllTrades() {

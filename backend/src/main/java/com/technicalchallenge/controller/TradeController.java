@@ -52,36 +52,47 @@ public class TradeController {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved trades",
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
-        @ApiResponse(responseCode = "500", description = "Internal server error")
+        @ApiResponse(responseCode = "500", description = "Internal server error"),
+        @ApiResponse(responseCode = "400", description = "Invalid input")
     })
-    public List<TradeDTO> getTradesWithRSQL(@RequestParam String query) {
-        //logger.info("Fetching all trades");
+    public ResponseEntity<?> getTradesWithRSQL(@RequestParam String query) {
+        logger.info("Fetching specified trades: {}", query);
         Node rootNode = new RSQLParser().parse(query);
         Specification<Trade> spec = rootNode.accept(new CustomRsqlVisitor<Trade>());
-        
-        return tradeService.getTradesWithRSQL(spec)
+
+        try {
+            List<TradeDTO> listOfTradeDTOs = tradeService.getTradesWithRSQL(spec)
             .stream()
             .map(tradeMapper::toDto)
             .toList();
+            return ResponseEntity.ok().body(listOfTradeDTOs);
+        } catch (Exception e) {
+            logger.error("Error fetching trades: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body("Error fetching trades: " + e.getMessage());
+        }   
     }
 
     @GetMapping("/filter")
     @Operation(summary = "Paginate trades",
-               description = "Retrieves a list of trades in the system by criteria such as counterparty, book, trader, status, date ranges")
+               description = "Retrieves a list of paginated trades")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved paginated trades",
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
         @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<Page<TradeDTO>>paginateTrades(
+    public ResponseEntity<?> paginateTrades(
             @RequestParam(defaultValue = "0") int pageNum,
             @RequestParam(defaultValue = "3") int pageSize) {
 
-        Page<Trade> pageOfTrades = tradeService.paginateTrades(pageNum, pageSize);
-        Page<TradeDTO> pageOfTradeDTOs = pageOfTrades.map(tradeMapper::toDto);
-        return ResponseEntity.ok().body(pageOfTradeDTOs);
-        
+        try {
+            Page<Trade> pageOfTrades = tradeService.paginateTrades(pageNum, pageSize);
+            Page<TradeDTO> pageOfTradeDTOs = pageOfTrades.map(tradeMapper::toDto);
+            return ResponseEntity.ok().body(pageOfTradeDTOs);
+        } catch (Exception e) {
+            logger.error("Pagination Error: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body("Pagination Error: " + e.getMessage());
+        }
     }
 
     @GetMapping("/search")
@@ -91,7 +102,8 @@ public class TradeController {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved trades",
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
-        @ApiResponse(responseCode = "500", description = "Internal server error")
+        @ApiResponse(responseCode = "500", description = "Internal server error"),
+        @ApiResponse(responseCode = "400", description = "Invalid search criteria")
     })
     public ResponseEntity<?> searchTrades(
             @RequestParam (required = false) LocalDate earliestTradeDate, 
