@@ -70,8 +70,34 @@ public class TradeService {
     }
 
     public List<Trade> searchTrades(LocalDate earliestTradeDate, LocalDate latestTradeDate, Long tradeStatusId, Long traderId, Long bookId, Long counterpartyId) {
-        //logger.info("Retrieving all trades");
+        logger.info("Retrieving trades");
+        
+        validateSearchParameters(earliestTradeDate, latestTradeDate, tradeStatusId, traderId, bookId, counterpartyId);
         return tradeRepository.searchTradesUsingSearchCriteria(earliestTradeDate, latestTradeDate, tradeStatusId, traderId, bookId, counterpartyId);
+    }
+
+    public void validateSearchParameters(LocalDate earliestTradeDate, LocalDate latestTradeDate, Long tradeStatusId, Long traderId, Long bookId, Long counterpartyId) {
+        logger.info("Validating search parameters");
+
+        String errorMessage = "";
+        if (latestTradeDate != null && earliestTradeDate != null && latestTradeDate.isBefore(earliestTradeDate)) {
+            errorMessage += "\n Earliest date must be before latest date";
+        }
+        if (tradeStatusId != null && !tradeStatusRepository.existsById(tradeStatusId)) {
+            errorMessage += "\n Trade status ID does not exist in the database";
+        }
+        if (traderId != null && !applicationUserRepository.existsById(traderId)) {
+            errorMessage += "\n Trader user ID does not exist in the database";
+        }
+        if (bookId != null && !bookRepository.existsById(bookId)) {
+            errorMessage += "\n Book ID does not exist in the database";
+        }
+        if (counterpartyId != null && !counterpartyRepository.existsById(counterpartyId)) {
+            errorMessage += "\n Counterparty ID does not exist in the database";
+        }
+        if (!errorMessage.equals("")) {
+            throw new RuntimeException(errorMessage);
+        }
     }
 
     public Page<Trade> paginateTrades(int pageNum, int pageSize) {
@@ -120,37 +146,77 @@ public class TradeService {
         return validationResult;
     }
 
-    public void validateTradeLegConsistency(List<TradeLegDTO> legs) {
+    public ValidationResult validateTradeLegConsistency(List<TradeLegDTO> legs) {
+
+        ValidationResult validationResult = new ValidationResult();
+
+        TradeLegDTO leg1 = legs.get(0);
+        TradeLegDTO leg2 = legs.get(1);
+
+        if (legs == null || legs.size() != 2) {
+            validationResult.addError("tradeLegs", "Trade must have exactly two legs", "ERROR");
+            //return result;
+        }
+
+        if (leg1.getCalculationPeriodSchedule() != null && leg2.getCalculationPeriodSchedule() != null) {
+            // Making the assumption that not having the same schedule means differing maturity dates
+            if (!leg1.getCalculationPeriodSchedule().equals(leg2.getCalculationPeriodSchedule())) {
+                validationResult.addError("maturityDate", "Both legs must have identical maturity dates", "ERROR");
+            }
+        }
+
+        if (leg1.getPayReceiveFlag() != null && leg2.getPayReceiveFlag() != null) {
+            if (leg1.getPayReceiveFlag().equalsIgnoreCase(leg2.getPayReceiveFlag())) {
+                validationResult.addError("payReceiveFlag",
+                        "Legs must have opposite pay/receive flags (one PAY, one RECEIVE)", "ERROR");
+            }
+        } else {
+            validationResult.addError("payReceiveFlag", "Both legs must specify a pay/receive flag", "ERROR");
+        }
 
         for (TradeLegDTO leg : legs) {
             if (leg.getLegType().equalsIgnoreCase("Floating")) {
-                if (leg.getIndexId() == null) {
-                    throw new RuntimeException("Floating legs must have an index specified");
+                if (leg.getIndexId() == null && (leg.getIndexName() == null || leg.getIndexName().isBlank())) {
+                    validationResult.addError("index", "Floating legs must have an index specified", "ERROR");
                 }
             }
+
             if (leg.getLegType().equalsIgnoreCase("Fixed")) {
                 if (leg.getRate() == null) {
-                    throw new RuntimeException("Fixed leg must have a rate specified");
+                    validationResult.addError("rate", "Fixed leg must have a rate specified", "ERROR");
                 }
                 if (leg.getRate() <= 0.0) {
-                    throw new RuntimeException ("Fixed leg must have a rate greater than zero");
+                    validationResult.addError("rate", "Fixed leg must have a rate greater than zero", "ERROR");
                 }
             }
         }
-
-        if (legs.size() != 2) {
-            throw new RuntimeException("Trade must have exactly 2 legs");
-        } else {
-            TradeLegDTO leg1 = legs.get(0);
-            TradeLegDTO leg2 = legs.get(1);
-            
-            if (leg1.getPayReceiveFlag() != null && leg2.getPayReceiveFlag() != null) {
-                if (leg1.getPayReceiveFlag().equalsIgnoreCase(leg2.getPayReceiveFlag())) {
-                    throw new RuntimeException("Both legs cannot have the same pay/receive flag — one must be PAY and the other RECEIVE");
-                }
-            }
-        }
+        return validationResult;
     }
+
+    // public ValidationResult validateReferenceData(Trade trade) {
+
+    //     ValidationResult validationResult = new ValidationResult();
+
+    //     if (trade.getBook() == null) {
+    //         validationResult.addError("book", "Book not found or not set", "ERROR");
+    //     }
+    //     if (!trade.getBook().getActive()) {
+    //         validationResult.addError("book", "Book must be active", "ERROR");
+    //     }
+    //     if (trade.getCounterparty() == null) {
+    //         validationResult.addError("counterparty", "Counterparty not found or not set", "ERROR");
+    //     }
+    //     if (!trade.getCounterparty().getActive()) {
+    //         validationResult.addError("counterparty", "Counterparty must be active", "ERROR");
+    //     }
+    //     if (trade.getTradeStatus() == null) {
+    //         validationResult.addError("tradeStatus", "Trade status not found or not set", "ERROR");
+    //     }
+
+    //     return validationResult;
+    // }
+
+    
 
     @Transactional
     public Trade createTrade(TradeDTO tradeDTO) {
@@ -165,18 +231,7 @@ public class TradeService {
         }
 
         // Validate business rules
-        //validateTradeCreation(tradeDTO);
-        ValidationResult validationResult = validateTradeBusinessRules(tradeDTO);
-        
-        if (!validationResult.isValid()) {
-            // Join all the error messages together into one string
-            String errorMessages = validationResult.getValidationErrors()
-                .stream()
-                .map(FieldValidationError::getErrorMessage)
-                .collect(Collectors.joining("; "));
-            logger.warn("Trade validation failed: {}", errorMessages);
-            throw new RuntimeException("TRADE VALIDATION FAILED: " + errorMessages);
-        }
+        ValidationResult validationResultBusiness = validateTradeBusinessRules(tradeDTO);
 
         // Create trade entity
         Trade trade = mapDTOToEntity(tradeDTO);
@@ -194,7 +249,30 @@ public class TradeService {
         populateReferenceDataByName(trade, tradeDTO);
 
         // Ensure we have essential reference data
-        validateReferenceData(trade);
+        //ValidationResult validationResultReferenceData = validateReferenceData(trade);
+        
+        //String errorMessages = "TRADE VALIDATION FAILED:";
+        
+        if (!validationResultBusiness.isValid()) {
+            // Join all the error messages together into one string
+            String errorMessages = validationResultBusiness.getValidationErrors()
+                .stream()
+                .map(FieldValidationError::getErrorMessage)
+                .collect(Collectors.joining("; "));
+            logger.warn("Business rules failed: {}", errorMessages);
+            throw new RuntimeException("TRADE VALIDATION FAILED: " + errorMessages);
+        }
+        // if (!validationResultReferenceData.isValid()) {
+        //     errorMessages += validationResultReferenceData.getValidationErrors()
+        //         .stream()
+        //         .map(FieldValidationError::getErrorMessage)
+        //         .collect(Collectors.joining("; "));
+        //     logger.warn("Reference data rules failed: {}", errorMessages);
+        // }
+
+        // if (!errorMessages.equals("TRADE VALIDATION FAILED:")) {
+        //     throw new RuntimeException("TRADE VALIDATION FAILED: " + errorMessages);
+        // }
 
         Trade savedTrade = tradeRepository.save(trade);
 

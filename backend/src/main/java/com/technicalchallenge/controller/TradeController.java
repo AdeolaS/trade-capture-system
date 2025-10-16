@@ -84,7 +84,6 @@ public class TradeController {
         
     }
 
-
     @GetMapping("/search")
     @Operation(summary = "Search trades",
                description = "Retrieves a list of trades in the system by criteria such as counterparty, book, trader, status, date ranges")
@@ -94,20 +93,27 @@ public class TradeController {
                                      schema = @Schema(implementation = TradeDTO.class))),
         @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public List<TradeDTO> searchTrades(
+    public ResponseEntity<?> searchTrades(
             @RequestParam (required = false) LocalDate earliestTradeDate, 
             @RequestParam (required = false) LocalDate latestTradeDate, 
             @RequestParam (required = false) Long tradeStatusId, 
             @RequestParam (required = false) Long traderId, 
             @RequestParam (required = false) Long bookId, 
             @RequestParam (required = false) Long counterpartyId) {
-        //logger.info("Fetching all trades");
+
+        logger.info("Fetching trades with specified properties: {}, {}, {}, {}, {}, {}", 
+            earliestTradeDate, latestTradeDate, tradeStatusId, traderId, bookId, counterpartyId);
         
-        return tradeService.searchTrades(earliestTradeDate, latestTradeDate, tradeStatusId, traderId, bookId, counterpartyId)
-            .stream()
-            .map(tradeMapper::toDto)
-            .toList();
-        
+        try {
+            List<TradeDTO> listOfTradeDTOs = tradeService.searchTrades(earliestTradeDate, latestTradeDate, tradeStatusId, traderId, bookId, counterpartyId)
+                    .stream()
+                    .map(tradeMapper::toDto)
+                    .toList();
+            return ResponseEntity.ok().body(listOfTradeDTOs);
+        } catch (Exception e) {
+            logger.error("Error fetching trades: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body("Error fetching trades: " + e.getMessage());
+        }        
     }
 
 

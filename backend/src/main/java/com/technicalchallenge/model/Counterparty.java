@@ -22,4 +22,8 @@ public class Counterparty {
     private LocalDate createdDate;
     private LocalDate lastModifiedDate;
     private boolean active;
+
+    public boolean getActive() {
+        return this.active;
+    }
 }

@@ -20,4 +20,8 @@ public class Book {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cost_center_id", referencedColumnName = "id")
     private CostCenter costCenter;
+
+    public boolean getActive() {
+        return this.active;
+    }
 }
