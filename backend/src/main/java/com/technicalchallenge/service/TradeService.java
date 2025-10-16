@@ -4,6 +4,11 @@ import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
 import com.technicalchallenge.model.*;
 import com.technicalchallenge.repository.*;
+import com.technicalchallenge.rsql.CustomRsqlVisitor;
+
+import cz.jirutka.rsql.parser.RSQLParser;
+import cz.jirutka.rsql.parser.ast.Node;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -64,8 +69,15 @@ public class TradeService {
     @Autowired
     private AdditionalInfoService additionalInfoService;
 
-    public List<Trade> getTradesWithRSQL(Specification<Trade> spec) {
-        //logger.info("Fetching all trades");
+    public List<Trade> getTradesWithRSQL(String query) {
+        logger.info("Retrieving trades");
+        
+        // Parse RQSL
+        Node rootNode = new RSQLParser().parse(query);
+
+        //Build JPA specification
+        Specification<Trade> spec = rootNode.accept(new CustomRsqlVisitor<Trade>());
+
         return tradeRepository.findAll(spec);
     }
 

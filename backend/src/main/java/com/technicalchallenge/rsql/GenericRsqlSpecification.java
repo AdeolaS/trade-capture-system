@@ -12,7 +12,7 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Path;
 
-// Dynamically builds WHERE clauses for any entity type T at runtime
+// Dynamically builds WHERE clauses (predicates) for any entity type T at runtime
 public class GenericRsqlSpecification<T> implements Specification<T> {
 
     private String property;
@@ -91,18 +91,18 @@ public class GenericRsqlSpecification<T> implements Specification<T> {
 
 
     private List<Object> castArguments(final Root<T> root) {
-        Path<?> path = getPath(root, property);
-        Class<?> type = path.getJavaType(); 
+    Path<?> path = getPath(root, property);
+    Class<?> type = path.getJavaType(); 
 
         return arguments.stream().map(arg -> {
-            if (type.equals(Integer.class)) {
-                return Integer.parseInt(arg);
-            } else if (type.equals(Long.class)) {
-                return Long.parseLong(arg);
-            } else if (type.equals(Boolean.class)) {
-                return Boolean.parseBoolean(arg);
-            } else {
+            try {
+                if (type.equals(Integer.class)) return Integer.parseInt(arg);
+                if (type.equals(Long.class)) return Long.parseLong(arg);
+                if (type.equals(Boolean.class)) return Boolean.parseBoolean(arg);
+                if (type.equals(Double.class)) return Double.parseDouble(arg);
                 return arg;
+            } catch (Exception e) {
+                throw new RuntimeException("Invalid value for property '" + property + "': " + arg);
             }
         }).collect(Collectors.toList());
     }
