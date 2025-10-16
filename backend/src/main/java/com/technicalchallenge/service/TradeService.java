@@ -10,6 +10,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.repository.query.Param;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
@@ -21,6 +22,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -87,26 +89,35 @@ public class TradeService {
         return tradeRepository.findByTradeIdAndActiveTrue(tradeId);
     }
 
-    public void validateTradeBusinessRules(TradeDTO tradeDTO) {
+    public ValidationResult validateTradeBusinessRules(TradeDTO tradeDTO) {
 
-        if (tradeDTO.getTradeMaturityDate() != null && tradeDTO.getTradeStartDate() != null && tradeDTO.getTradeDate() != null) {
-            if (tradeDTO.getTradeMaturityDate().isBefore(tradeDTO.getTradeStartDate()) || tradeDTO.getTradeMaturityDate().isBefore(tradeDTO.getTradeDate())) {
-                throw new RuntimeException("Maturity date cannot be before start date or trade date.");
-            }
-        }
-
-        if (tradeDTO.getTradeStartDate() != null && tradeDTO.getTradeDate() != null) {
-            if (tradeDTO.getTradeStartDate().isBefore(tradeDTO.getTradeDate())) {
-                throw new RuntimeException("Start date cannot be before trade date");
-            }
-        }
+        ValidationResult validationResult = new ValidationResult();
 
         if (tradeDTO.getTradeDate() != null) {
             if (tradeDTO.getTradeDate().isBefore(LocalDate.now().minusDays(30))){
-                throw new RuntimeException("Trade date must not be more than 30 days before today's date.");
+                validationResult.addError("tradeDate", "Trade date must not be more than 30 days before today's date", "ERROR");
             }
+        } else {
+            validationResult.addError("tradeDate", "Trade date is required", "ERROR");
         }
-        
+
+        if (tradeDTO.getTradeStartDate() != null) {
+            if (tradeDTO.getTradeStartDate().isBefore(tradeDTO.getTradeDate())) {
+                validationResult.addError("tradeStartDate", "Start date cannot be before trade date", "ERROR");
+            }
+        } else {
+            validationResult.addError("tradeStartDate", "Trade start date is required", "ERROR");
+        }
+
+        if (tradeDTO.getTradeMaturityDate() != null) {
+            if (tradeDTO.getTradeMaturityDate().isBefore(tradeDTO.getTradeStartDate()) || tradeDTO.getTradeMaturityDate().isBefore(tradeDTO.getTradeDate())) {
+                validationResult.addError("tradeMaturityDate", "Maturity date cannot be before start date or trade date", "ERROR");
+            }
+        } else {
+            validationResult.addError("tradeMaturityDate", "Trade maturity date is required", "ERROR");
+        }
+
+        return validationResult;
     }
 
     public void validateTradeLegConsistency(List<TradeLegDTO> legs) {
@@ -154,7 +165,18 @@ public class TradeService {
         }
 
         // Validate business rules
-        validateTradeCreation(tradeDTO);
+        //validateTradeCreation(tradeDTO);
+        ValidationResult validationResult = validateTradeBusinessRules(tradeDTO);
+        
+        if (!validationResult.isValid()) {
+            // Join all the error messages together into one string
+            String errorMessages = validationResult.getValidationErrors()
+                .stream()
+                .map(FieldValidationError::getErrorMessage)
+                .collect(Collectors.joining("; "));
+            logger.warn("Trade validation failed: {}", errorMessages);
+            throw new RuntimeException("TRADE VALIDATION FAILED: " + errorMessages);
+        }
 
         // Create trade entity
         Trade trade = mapDTOToEntity(tradeDTO);

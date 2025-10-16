@@ -76,7 +76,7 @@ public class TradeController {
     })
     public ResponseEntity<Page<TradeDTO>>paginateTrades(
             @RequestParam(defaultValue = "0") int pageNum,
-            @RequestParam(defaultValue = "1") int pageSize) {
+            @RequestParam(defaultValue = "3") int pageSize) {
 
         Page<Trade> pageOfTrades = tradeService.paginateTrades(pageNum, pageSize);
         Page<TradeDTO> pageOfTradeDTOs = pageOfTrades.map(tradeMapper::toDto);
