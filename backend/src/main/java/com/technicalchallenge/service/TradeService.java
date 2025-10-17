@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -174,6 +175,50 @@ public class TradeService {
         return validationResult;
     }
 
+    public boolean validateUserPrivileges(Long userId, String operation, TradeDTO tradeDTO) {
+        logger.info("Validating privileges for user: {} | operation: {}", userId, operation);
+
+        // Check if the user exists
+        Optional<ApplicationUser> userOptional = applicationUserRepository.findById(userId);
+        if (userOptional.isEmpty()) {
+            logger.warn("User not found: {}", userId);
+            return false;
+        }
+        ApplicationUser user = userOptional.get();
+
+        // Check if the user is active
+        if (!user.isActive()) {
+            logger.warn("User '{}' is inactive", userId);
+            return false;
+        }
+
+        // Get user type e.g. TRADER_SALES, SUPPORT, ADMIN, MO, SUPERUSER
+        String userType = user.getUserProfile().getUserType();
+
+        // Define permissions
+        Map<String, List<String>> rolePermissions = Map.of(
+            "TRADER_SALES", List.of("CREATE", "AMEND", "TERMINATE", "CANCEL"),
+            "SUPPORT",      List.of("VIEW"),
+            "MO",           List.of("AMEND", "VIEW"),
+            "ADMIN",        List.of("CREATE", "AMEND", "TERMINATE", "CANCEL", "VIEW"),
+            "SUPERUSER",    List.of("CREATE", "AMEND", "TERMINATE", "CANCEL", "VIEW")
+        );
+
+        // If the usertype exists, returns a list of allowed operations. Else returns an empty list
+        List<String> allowedOperations = rolePermissions.getOrDefault(userType.toUpperCase(), List.of());
+
+        // Checks input operation is in the user's list of allowed operations
+        boolean isAllowed = allowedOperations.contains(operation.toUpperCase());
+
+        if (!isAllowed) {
+            logger.warn("Unauthorized: '{}' with role '{}' cannot perform '{}'", userId, userType, operation);
+        } else {
+            logger.info("User '{}' authorized for '{}'", userId, operation);
+        }
+
+        return isAllowed;
+    }
+
     public ValidationResult validateTradeLegConsistency(List<TradeLegDTO> legs) {
 
         ValidationResult validationResult = new ValidationResult();
@@ -276,11 +321,6 @@ public class TradeService {
         // Populate reference data
         populateReferenceDataByName(trade, tradeDTO);
 
-        // Ensure we have essential reference data
-        //ValidationResult validationResultReferenceData = validateReferenceData(trade);
-        
-        //String errorMessages = "TRADE VALIDATION FAILED:";
-        
         if (!validationResultBusiness.isValid()) {
             // Join all the error messages together into one string
             String errorMessages = validationResultBusiness.getValidationErrors()
@@ -290,17 +330,6 @@ public class TradeService {
             logger.warn("Business rules failed: {}", errorMessages);
             throw new RuntimeException("TRADE VALIDATION FAILED: " + errorMessages);
         }
-        // if (!validationResultReferenceData.isValid()) {
-        //     errorMessages += validationResultReferenceData.getValidationErrors()
-        //         .stream()
-        //         .map(FieldValidationError::getErrorMessage)
-        //         .collect(Collectors.joining("; "));
-        //     logger.warn("Reference data rules failed: {}", errorMessages);
-        // }
-
-        // if (!errorMessages.equals("TRADE VALIDATION FAILED:")) {
-        //     throw new RuntimeException("TRADE VALIDATION FAILED: " + errorMessages);
-        // }
 
         Trade savedTrade = tradeRepository.save(trade);
 

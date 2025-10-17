@@ -39,4 +39,8 @@ public class ApplicationUser {
         this.lastModifiedTimestamp = java.time.LocalDateTime.now();
         this.version = this.version + 1;
     }
+
+    public boolean isActive() {
+        return this.active;
+    }
 }
