@@ -266,28 +266,34 @@ public class TradeService {
         return validationResult;
     }
 
-    // public ValidationResult validateReferenceData(Trade trade) {
+    public ValidationResult validateReferenceDataDRAFT(Trade trade) {
 
-    //     ValidationResult validationResult = new ValidationResult();
+        ValidationResult validationResult = new ValidationResult();
 
-    //     if (trade.getBook() == null) {
-    //         validationResult.addError("book", "Book not found or not set", "ERROR");
-    //     }
-    //     if (!trade.getBook().getActive()) {
-    //         validationResult.addError("book", "Book must be active", "ERROR");
-    //     }
-    //     if (trade.getCounterparty() == null) {
-    //         validationResult.addError("counterparty", "Counterparty not found or not set", "ERROR");
-    //     }
-    //     if (!trade.getCounterparty().getActive()) {
-    //         validationResult.addError("counterparty", "Counterparty must be active", "ERROR");
-    //     }
-    //     if (trade.getTradeStatus() == null) {
-    //         validationResult.addError("tradeStatus", "Trade status not found or not set", "ERROR");
-    //     }
+        if (trade.getBook() == null) {
+            validationResult.addError("book", "Book not found or not set", "ERROR");
+        }
+        if (!trade.getBook().isActive()) {
+            validationResult.addError("book", "Book must be active", "ERROR");
+        }
+        if (trade.getCounterparty() == null) {
+            validationResult.addError("counterparty", "Counterparty not found or not set", "ERROR");
+        }
+        if (!trade.getCounterparty().isActive()) {
+            validationResult.addError("counterparty", "Counterparty must be active", "ERROR");
+        }
+        if (trade.getTraderUser() == null) {
+            validationResult.addError("counterparty", "Trader User not found or not set", "ERROR");
+        }
+        if (!trade.getTraderUser().isActive()) {
+            validationResult.addError("counterparty", "Trader User must be active", "ERROR");
+        }
+        if (trade.getTradeStatus() == null) {
+            validationResult.addError("tradeStatus", "Trade status not found or not set", "ERROR");
+        }
 
-    //     return validationResult;
-    // }
+        return validationResult;
+    }
 
     
 

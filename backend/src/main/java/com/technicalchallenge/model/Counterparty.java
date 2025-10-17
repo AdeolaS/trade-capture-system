@@ -23,7 +23,7 @@ public class Counterparty {
     private LocalDate lastModifiedDate;
     private boolean active;
 
-    public boolean getActive() {
+    public boolean isActive() {
         return this.active;
     }
 }

@@ -21,7 +21,7 @@ public class Book {
     @JoinColumn(name = "cost_center_id", referencedColumnName = "id")
     private CostCenter costCenter;
 
-    public boolean getActive() {
+    public boolean isActive() {
         return this.active;
     }
 }
