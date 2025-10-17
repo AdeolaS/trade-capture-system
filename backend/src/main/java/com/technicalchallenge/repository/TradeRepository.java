@@ -23,7 +23,7 @@ public interface TradeRepository extends JpaRepository<Trade, Long>, JpaSpecific
             AND (:bookId IS NULL OR :bookId = t.book.id)
             AND (:counterpartyId IS NULL OR :counterpartyId = t.counterparty.id)
     """)
-    public List<Trade> searchTradesUsingSearchCriteria(
+    List<Trade> searchTradesUsingSearchCriteria(
         @Param ("earliestTradeDate") LocalDate earliestTradeDate,
         @Param ("latestTradeDate") LocalDate latestTradeDate,
         @Param ("tradeStatusId") Long tradeStatusId,
@@ -31,6 +31,11 @@ public interface TradeRepository extends JpaRepository<Trade, Long>, JpaSpecific
         @Param ("bookId") Long bookId,
         @Param ("counterpartyId") Long counterpartyId
     );
+
+    // @Query("SELECT t FROM Trade t WHERE t.traderUser.id = :traderUserId")
+    // List<Trade> findByTraderUserId(@Param ("traderUserId") Long traderUserId);
+
+    List<Trade> findByTraderUser_Id(Long traderUserId);
 
     // Existing methods
     List<Trade> findByTradeId(Long tradeId);
