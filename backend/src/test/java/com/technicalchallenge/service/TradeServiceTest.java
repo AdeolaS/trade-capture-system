@@ -73,9 +73,9 @@ class TradeServiceTest {
         // Set up test data
         tradeDTO = new TradeDTO();
         tradeDTO.setTradeId(100001L);
-        tradeDTO.setTradeDate(LocalDate.of(2025, 1, 15));
-        tradeDTO.setTradeStartDate(LocalDate.of(2025, 1, 17));
-        tradeDTO.setTradeMaturityDate(LocalDate.of(2026, 1, 17));
+        tradeDTO.setTradeDate(LocalDate.now());
+        tradeDTO.setTradeStartDate(LocalDate.now().plusDays(2));
+        tradeDTO.setTradeMaturityDate(LocalDate.now().plusYears(1).plusDays(2));
 
         TradeLegDTO leg1 = new TradeLegDTO();
         leg1.setNotional(BigDecimal.valueOf(1000000));
@@ -141,7 +141,7 @@ class TradeServiceTest {
         });
 
         // Test that error with correct message is thrown
-        assertEquals("Start date cannot be before trade date", exception.getMessage());
+        assertEquals("TRADE VALIDATION FAILED: Start date cannot be before trade date", exception.getMessage());
     }
 
     @Test
@@ -216,8 +216,8 @@ class TradeServiceTest {
 
     @ParameterizedTest
     // Input values for test. 
-    @CsvSource({"2025,3,4", "2025,5,8", "2026,1,24", "2027,3,52"})
-    void testCashflowGeneration_MonthlySchedule(int maturityYear, int maturityMonth, int invocationsCount) {
+    @CsvSource({"0,2,4", "0,4,8", "1,0,24", "2,2,52"})
+    void testCashflowGeneration_MonthlySchedule(int years, int months, int invocationsCount) {
 
         // Given
         Schedule schedule = new Schedule();
@@ -226,8 +226,8 @@ class TradeServiceTest {
         tradeLeg.setNotional(BigDecimal.valueOf(1000000));
         tradeLeg.setCalculationPeriodSchedule(schedule);
 
-        tradeDTO.setTradeStartDate(LocalDate.of(2025, 1, 17));
-        tradeDTO.setTradeMaturityDate(LocalDate.of(maturityYear, maturityMonth, 17));
+        tradeDTO.setTradeStartDate(LocalDate.now());
+        tradeDTO.setTradeMaturityDate(LocalDate.now().plusYears(years).plusMonths(months));
 
         when(bookRepository.findById(123L)).thenReturn(Optional.of(book));
         when(counterpartyRepository.findById(345L)).thenReturn(Optional.of(counterparty));

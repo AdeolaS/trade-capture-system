@@ -172,8 +172,6 @@ public class TradeService {
             validationResult.addError("tradeMaturityDate", "Trade maturity date is required", "ERROR");
         }
 
-        
-
         return validationResult;
     }
 
@@ -518,7 +516,7 @@ public class TradeService {
             logger.warn("Business rules failed: {}", errorMessages);
             throw new RuntimeException("TRADE VALIDATION FAILED: " + errorMessages);
         }
-        
+
         Optional<Trade> existingTradeOpt = getTradeById(tradeId);
         if (existingTradeOpt.isEmpty()) {
             throw new RuntimeException("Trade not found: " + tradeId);
