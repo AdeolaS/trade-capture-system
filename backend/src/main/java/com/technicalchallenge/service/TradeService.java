@@ -66,6 +66,15 @@ public class TradeService {
     @Autowired
     private PayRecRepository payRecRepository;
 
+    // Define permissions
+    private static Map<String, List<String>> rolePermissions = Map.of(
+        "TRADER_SALES", List.of("CREATE", "AMEND", "TERMINATE", "CANCEL"),
+        "SUPPORT",      List.of("VIEW"),
+        "MO",           List.of("AMEND", "VIEW"),
+        "ADMIN",        List.of("CREATE", "AMEND", "TERMINATE", "CANCEL", "VIEW"),
+        "SUPERUSER",    List.of("CREATE", "AMEND", "TERMINATE", "CANCEL", "VIEW")
+    );
+
     public List<Trade> getTradesWithRSQL(String query) {
         logger.info("Retrieving trades");
         
@@ -191,15 +200,6 @@ public class TradeService {
         // Get user type e.g. TRADER_SALES, SUPPORT, ADMIN, MO, SUPERUSER
         String userType = user.getUserProfile().getUserType();
 
-        // Define permissions
-        Map<String, List<String>> rolePermissions = Map.of(
-            "TRADER_SALES", List.of("CREATE", "AMEND", "TERMINATE", "CANCEL"),
-            "SUPPORT",      List.of("VIEW"),
-            "MO",           List.of("AMEND", "VIEW"),
-            "ADMIN",        List.of("CREATE", "AMEND", "TERMINATE", "CANCEL", "VIEW"),
-            "SUPERUSER",    List.of("CREATE", "AMEND", "TERMINATE", "CANCEL", "VIEW")
-        );
-
         // If the usertype exists, returns a list of allowed operations. Else returns an empty list
         List<String> allowedOperations = rolePermissions.getOrDefault(userType.toUpperCase(), List.of());
 
@@ -211,7 +211,6 @@ public class TradeService {
         } else {
             logger.info("User '{}' authorized for '{}'", userId, operation);
         }
-
         return isAllowed;
     }
 
