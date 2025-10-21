@@ -173,9 +173,17 @@ public class TradeController {
         @ApiResponse(responseCode = "500", description = "Internal server error during trade creation")
     })
     public ResponseEntity<?> createTrade(
+            @Parameter(description = "Id of user seeking to perform action", required = true)
+            @RequestParam Long userId,
             @Parameter(description = "Trade details for creation", required = true)
             @Valid @RequestBody TradeDTO tradeDTO) {
+
+        if (!tradeService.validateUserPrivileges(userId, "CREATE")) {
+            return ResponseEntity.status(403).body("User " + userId + " is not authorized to CREATE trades.");
+        }
+
         logger.info("Creating new trade: {}", tradeDTO);
+        
         try {
             Trade trade = tradeMapper.toEntity(tradeDTO);
             tradeService.populateReferenceDataByName(trade, tradeDTO);

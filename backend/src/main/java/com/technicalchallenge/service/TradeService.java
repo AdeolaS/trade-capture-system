@@ -180,7 +180,7 @@ public class TradeService {
         return validationResult;
     }
 
-    public boolean validateUserPrivileges(Long userId, String operation, TradeDTO tradeDTO) {
+    public boolean validateUserPrivileges(Long userId, String operation) {
         logger.info("Validating privileges for user: {} | operation: {}", userId, operation);
 
         // Check if the user exists
@@ -299,6 +299,7 @@ public class TradeService {
 
     @Transactional
     public Trade createTrade(TradeDTO tradeDTO) {
+
         logger.info("Creating new trade with ID: {}", tradeDTO.getTradeId());
 
         // Validate business rules
