@@ -12,6 +12,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.servlet.MockMvc;
@@ -95,6 +98,176 @@ public class TradeControllerTest {
                 .andExpect(jsonPath("$[0].counterpartyName", is("TestCounterparty")));
 
         verify(tradeService).getAllTrades();
+    }
+
+    @Test
+    void testGetTradesWithRSQL_Success() throws Exception {
+
+        // Given
+        String query = "book.name==Testbook";
+        when(tradeService.getTradesWithRSQL(query)).thenReturn(List.of(trade));
+
+        // When/Then
+        mockMvc.perform(get("/api/trades/rsql")
+                        .param("query", query)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].tradeId", is(1001)))
+                .andExpect(jsonPath("$[0].bookName", is("TestBook")));
+
+        verify(tradeService).getTradesWithRSQL(query);
+    }
+
+    @Test
+    void testGetTradesWithRSQL_NoValue() throws Exception {
+        String query = "counterparty.name=";
+        when(tradeService.getTradesWithRSQL(query))
+                .thenThrow(new IllegalArgumentException("cz.jirutka.rsql.parser.TokenMgrError: Lexical error at line 1, column 19.  Encountered: <EOF> after : \"\""));
+
+        mockMvc.perform(get("/api/trades/rsql")
+                        .param("query", query)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Invalid query: cz.jirutka.rsql.parser.TokenMgrError: Lexical error at line 1, column 19.  Encountered: <EOF> after : \"\""));
+
+        verify(tradeService).getTradesWithRSQL(query);
+    }
+
+    @Test
+    void testGetTradesWithRSQL_UnknownField() throws Exception {
+        String query = "counterparty.unknownField==X";
+        when(tradeService.getTradesWithRSQL(query))
+                .thenThrow(new RuntimeException("Error building predicate for property: counterparty.unknownField — org.hibernate.query.SemanticException: Could not resolve attribute 'unknownField' of 'com.technicalchallenge.model.Counterparty'"));
+
+        mockMvc.perform(get("/api/trades/rsql")
+                        .param("query", query)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Error fetching trades: Error building predicate for property: counterparty.unknownField — org.hibernate.query.SemanticException: Could not resolve attribute 'unknownField' of 'com.technicalchallenge.model.Counterparty'"));
+
+        verify(tradeService).getTradesWithRSQL(query);
+    }
+
+    @Test
+    void testGetTradesWithRSQL_EmptyQuery() throws Exception {
+        String query = "";
+        when(tradeService.getTradesWithRSQL(query))
+                .thenThrow(new IllegalArgumentException("cz.jirutka.rsql.parser.ParseException: Encountered \"<EOF>\" at line 0, column 0.\r\n" + //
+                                        "Was expecting one of:\r\n" + //
+                                        "    <UNRESERVED_STR> ...\r\n" + //
+                                        "    \"(\" ..."));
+
+        mockMvc.perform(get("/api/trades/rsql")
+                        .param("query", query)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Invalid query: cz.jirutka.rsql.parser.ParseException: Encountered \"<EOF>\" at line 0, column 0.\r\n" + //
+                                        "Was expecting one of:\r\n" + //
+                                        "    <UNRESERVED_STR> ...\r\n" + //
+                                        "    \"(\" ..."));
+
+        verify(tradeService).getTradesWithRSQL(query);
+    }
+
+    @Test
+    void testGetTradesWithRSQL_TooManyEquals() throws Exception {
+        String query = "tradeDate===2025-01-01";
+        when(tradeService.getTradesWithRSQL(query))
+                .thenThrow(new IllegalArgumentException("cz.jirutka.rsql.parser.TokenMgrError: Lexical error at line 1, column 13.  Encountered: \"2\" (50), after : \"=\""));
+
+        mockMvc.perform(get("/api/trades/rsql")
+                        .param("query", query)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Invalid query: cz.jirutka.rsql.parser.TokenMgrError: Lexical error at line 1, column 13.  Encountered: \"2\" (50), after : \"=\""));
+
+        verify(tradeService).getTradesWithRSQL(query);
+    }
+
+    @Test
+    void testGetTradesWithRSQL_UnexpectedError() throws Exception {
+        String query = "book.name==TestBook";
+        when(tradeService.getTradesWithRSQL(query))
+                .thenThrow(new RuntimeException("Database connection failed"));
+
+        mockMvc.perform(get("/api/trades/rsql")
+                        .param("query", query)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Error fetching trades: Database connection failed"));
+
+        verify(tradeService).getTradesWithRSQL(query);
+    }
+
+    @Test
+    void testPaginateTrades_Success() throws Exception {
+        // Given
+        int pageNum = 0;
+        int pageSize = 3;
+
+        List<Trade> trades = List.of(trade);
+        Page<Trade> tradePage = new PageImpl<>(trades, PageRequest.of(pageNum, pageSize), trades.size());
+
+        when(tradeService.paginateTrades(pageNum, pageSize)).thenReturn(tradePage);
+        when(tradeMapper.toDto(any(Trade.class))).thenReturn(tradeDTO);
+
+        // When / Then
+        mockMvc.perform(get("/api/trades/filter")
+                        .param("pageNum", String.valueOf(pageNum))
+                        .param("pageSize", String.valueOf(pageSize))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                // Validate pagination info
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].tradeId", is(1001)))
+                .andExpect(jsonPath("$.content[0].bookName", is("TestBook")))
+                .andExpect(jsonPath("$.size", is(pageSize)))
+                .andExpect(jsonPath("$.number", is(pageNum)));
+
+        verify(tradeService).paginateTrades(pageNum, pageSize);
+    }
+
+    @Test
+    void testPaginateTrades_NegativePageNumber() throws Exception {
+        // Given
+        int pageNum = -1;
+        int pageSize = 3;
+
+        // Simulate that the service throws an Exception
+        when(tradeService.paginateTrades(pageNum, pageSize))
+                .thenThrow(new RuntimeException("\n Requested Page number must be non-negative"));
+
+        // When / Then
+        mockMvc.perform(get("/api/trades/filter")
+                        .param("pageNum", String.valueOf(pageNum))
+                        .param("pageSize", String.valueOf(pageSize))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Pagination Error: \n Requested Page number must be non-negative"));
+
+        verify(tradeService).paginateTrades(pageNum, pageSize);
+    }
+
+    @Test
+    void testPaginateTrades_NegativePageSize() throws Exception {
+        // Given
+        int pageNum = 1;
+        int pageSize = -3;
+
+        // Simulate that the service throws an Exception
+        when(tradeService.paginateTrades(pageNum, pageSize))
+                .thenThrow(new RuntimeException("\n Page size must be more than zero"));
+
+        // When / Then
+        mockMvc.perform(get("/api/trades/filter")
+                        .param("pageNum", String.valueOf(pageNum))
+                        .param("pageSize", String.valueOf(pageSize))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Pagination Error: \n Page size must be more than zero"));
+
+        verify(tradeService).paginateTrades(pageNum, pageSize);
     }
 
     @Test

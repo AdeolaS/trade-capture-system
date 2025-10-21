@@ -22,4 +22,9 @@ public class TradeDashboardService {
         return tradeRepository.findByTraderUser_Id(traderLoginId);
     }
 
+    public List<Trade> testGetAll() {
+        logger.info("Retrieving of user's trades");
+        return tradeRepository.findAll();
+    }
+
 }
