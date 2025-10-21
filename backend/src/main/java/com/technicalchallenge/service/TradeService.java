@@ -172,6 +172,8 @@ public class TradeService {
             validationResult.addError("tradeMaturityDate", "Trade maturity date is required", "ERROR");
         }
 
+        
+
         return validationResult;
     }
 
@@ -295,11 +297,26 @@ public class TradeService {
         return validationResult;
     }
 
-    
-
+    public String getValidationResultErrorMessages(ValidationResult validationResult) {
+        return validationResult.getValidationErrors()
+                .stream()
+                .map(FieldValidationError::getErrorMessage)
+                .collect(Collectors.joining("; "));
+    }
     @Transactional
     public Trade createTrade(TradeDTO tradeDTO) {
         logger.info("Creating new trade with ID: {}", tradeDTO.getTradeId());
+
+        // Validate business rules
+        ValidationResult validationResultBusiness = validateTradeBusinessRules(tradeDTO);
+
+        if (!validationResultBusiness.isValid()) {
+            // Join all the error messages together into one string
+            String errorMessages = getValidationResultErrorMessages(validationResultBusiness);
+
+            logger.warn("Business rules failed: {}", errorMessages);
+            throw new RuntimeException("TRADE VALIDATION FAILED: " + errorMessages);
+        }
 
         // Generate trade ID if not provided
         if (tradeDTO.getTradeId() == null) {
@@ -308,9 +325,6 @@ public class TradeService {
             tradeDTO.setTradeId(generatedTradeId);
             logger.info("Generated trade ID: {}", generatedTradeId);
         }
-
-        // Validate business rules
-        ValidationResult validationResultBusiness = validateTradeBusinessRules(tradeDTO);
 
         // Create trade entity
         Trade trade = mapDTOToEntity(tradeDTO);
@@ -326,16 +340,6 @@ public class TradeService {
 
         // Populate reference data
         populateReferenceDataByName(trade, tradeDTO);
-
-        if (!validationResultBusiness.isValid()) {
-            // Join all the error messages together into one string
-            String errorMessages = validationResultBusiness.getValidationErrors()
-                .stream()
-                .map(FieldValidationError::getErrorMessage)
-                .collect(Collectors.joining("; "));
-            logger.warn("Business rules failed: {}", errorMessages);
-            throw new RuntimeException("TRADE VALIDATION FAILED: " + errorMessages);
-        }
 
         Trade savedTrade = tradeRepository.save(trade);
 
@@ -504,6 +508,17 @@ public class TradeService {
     public Trade amendTrade(Long tradeId, TradeDTO tradeDTO) {
         logger.info("Amending trade with ID: {}", tradeId);
 
+        // Validate business rules
+        ValidationResult validationResultBusiness = validateTradeBusinessRules(tradeDTO);
+
+        if (!validationResultBusiness.isValid()) {
+            // Join all the error messages together into one string
+            String errorMessages = getValidationResultErrorMessages(validationResultBusiness);
+
+            logger.warn("Business rules failed: {}", errorMessages);
+            throw new RuntimeException("TRADE VALIDATION FAILED: " + errorMessages);
+        }
+        
         Optional<Trade> existingTradeOpt = getTradeById(tradeId);
         if (existingTradeOpt.isEmpty()) {
             throw new RuntimeException("Trade not found: " + tradeId);

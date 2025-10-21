@@ -51,7 +51,7 @@ public class TradeDashboardController {
         logger.info("Fetching trades for user");
 
         // List<TradeDTO> listOfTradeDTOs = tradeDashboardService.getPersonalTrades(userId)
-        List<TradeDTO> listOfTradeDTOs = tradeDashboardService.testGetAll()
+        List<TradeDTO> listOfTradeDTOs = tradeDashboardService.getPersonalTrades(userId)
             .stream()
             .map(tradeMapper::toDto)
             .toList();
