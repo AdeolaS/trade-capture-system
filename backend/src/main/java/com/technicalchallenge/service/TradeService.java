@@ -14,8 +14,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
-import org.springframework.data.repository.query.Param;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.slf4j.Logger;
@@ -67,8 +65,6 @@ public class TradeService {
     private BusinessDayConventionRepository businessDayConventionRepository;
     @Autowired
     private PayRecRepository payRecRepository;
-    @Autowired
-    private AdditionalInfoService additionalInfoService;
 
     public List<Trade> getTradesWithRSQL(String query) {
         logger.info("Retrieving trades");
@@ -223,20 +219,20 @@ public class TradeService {
 
         ValidationResult validationResult = new ValidationResult();
 
+        if (legs == null || legs.size() != 2) {
+            validationResult.addError("tradeLegs", "Trade must have exactly two legs", "ERROR");
+            return validationResult;
+        }
+        
         TradeLegDTO leg1 = legs.get(0);
         TradeLegDTO leg2 = legs.get(1);
 
-        if (legs == null || legs.size() != 2) {
-            validationResult.addError("tradeLegs", "Trade must have exactly two legs", "ERROR");
-            //return result;
-        }
-
-        if (leg1.getCalculationPeriodSchedule() != null && leg2.getCalculationPeriodSchedule() != null) {
-            // Making the assumption that not having the same schedule means differing maturity dates
-            if (!leg1.getCalculationPeriodSchedule().equals(leg2.getCalculationPeriodSchedule())) {
-                validationResult.addError("maturityDate", "Both legs must have identical maturity dates", "ERROR");
-            }
-        }
+        // if (leg1.getCalculationPeriodSchedule() != null && leg2.getCalculationPeriodSchedule() != null) {
+        //     // Making the assumption that not having the same schedule means differing maturity dates
+        //     if (!leg1.getCalculationPeriodSchedule().equals(leg2.getCalculationPeriodSchedule())) {
+        //         validationResult.addError("maturityDate", "Both legs must have identical maturity dates", "ERROR");
+        //     }
+        // }
 
         if (leg1.getPayReceiveFlag() != null && leg2.getPayReceiveFlag() != null) {
             if (leg1.getPayReceiveFlag().equalsIgnoreCase(leg2.getPayReceiveFlag())) {
@@ -301,19 +297,24 @@ public class TradeService {
                 .map(FieldValidationError::getErrorMessage)
                 .collect(Collectors.joining("; "));
     }
+
     @Transactional
     public Trade createTrade(TradeDTO tradeDTO) {
         logger.info("Creating new trade with ID: {}", tradeDTO.getTradeId());
 
         // Validate business rules
         ValidationResult validationResultBusiness = validateTradeBusinessRules(tradeDTO);
+        // Validate tradeleg consistensies
+        ValidationResult validationResultLegs = validateTradeLegConsistency(tradeDTO.getTradeLegs());
 
-        if (!validationResultBusiness.isValid()) {
+        if (!validationResultBusiness.isValid() || !validationResultLegs.isValid()) {
             // Join all the error messages together into one string
-            String errorMessages = getValidationResultErrorMessages(validationResultBusiness);
+            String errorMessagesBusiness = getValidationResultErrorMessages(validationResultBusiness);
+            String errorMessagesLegs = getValidationResultErrorMessages(validationResultLegs);
 
-            logger.warn("Business rules failed: {}", errorMessages);
-            throw new RuntimeException("TRADE VALIDATION FAILED: " + errorMessages);
+            logger.warn("Trade creation failed: {}. {}", errorMessagesBusiness, errorMessagesLegs);
+
+            throw new RuntimeException("TRADE VALIDATION FAILED:\n" + errorMessagesBusiness + "\n" + errorMessagesLegs);
         }
 
         // Generate trade ID if not provided
@@ -508,13 +509,16 @@ public class TradeService {
 
         // Validate business rules
         ValidationResult validationResultBusiness = validateTradeBusinessRules(tradeDTO);
+        // Validate tradeleg consistensies
+        ValidationResult validationResultLegs = validateTradeLegConsistency(tradeDTO.getTradeLegs());
 
         if (!validationResultBusiness.isValid()) {
             // Join all the error messages together into one string
-            String errorMessages = getValidationResultErrorMessages(validationResultBusiness);
+            String errorMessagesBusiness = getValidationResultErrorMessages(validationResultBusiness);
+            String errorMessagesLegs = getValidationResultErrorMessages(validationResultLegs);
 
-            logger.warn("Business rules failed: {}", errorMessages);
-            throw new RuntimeException("TRADE VALIDATION FAILED: " + errorMessages);
+            logger.warn("Trade amendment failed: {}. {}", errorMessagesBusiness, errorMessagesLegs);
+            throw new RuntimeException("TRADE VALIDATION FAILED:\n" + errorMessagesBusiness + "\n" + errorMessagesLegs);
         }
 
         Optional<Trade> existingTradeOpt = getTradeById(tradeId);

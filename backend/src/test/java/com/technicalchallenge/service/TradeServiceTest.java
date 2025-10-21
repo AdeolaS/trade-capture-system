@@ -5,6 +5,9 @@ import com.technicalchallenge.dto.TradeLegDTO;
 import com.technicalchallenge.model.Book;
 import com.technicalchallenge.model.Cashflow;
 import com.technicalchallenge.model.Counterparty;
+import com.technicalchallenge.model.Index;
+import com.technicalchallenge.model.LegType;
+import com.technicalchallenge.model.PayRec;
 import com.technicalchallenge.model.Schedule;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.model.TradeLeg;
@@ -12,6 +15,9 @@ import com.technicalchallenge.model.TradeStatus;
 import com.technicalchallenge.repository.BookRepository;
 import com.technicalchallenge.repository.CashflowRepository;
 import com.technicalchallenge.repository.CounterpartyRepository;
+import com.technicalchallenge.repository.IndexRepository;
+import com.technicalchallenge.repository.LegTypeRepository;
+import com.technicalchallenge.repository.PayRecRepository;
 import com.technicalchallenge.repository.TradeLegRepository;
 import com.technicalchallenge.repository.TradeRepository;
 import com.technicalchallenge.repository.TradeStatusRepository;
@@ -31,6 +37,8 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -53,6 +61,15 @@ class TradeServiceTest {
 
     @Mock
     private CounterpartyRepository counterpartyRepository;
+
+    @Mock
+    private LegTypeRepository legTypeRepository;
+
+    @Mock
+    private IndexRepository indexRepository;
+
+    @Mock
+    private PayRecRepository payRecRepository;
 
     @Mock
     private AdditionalInfoService additionalInfoService;
@@ -80,10 +97,15 @@ class TradeServiceTest {
         TradeLegDTO leg1 = new TradeLegDTO();
         leg1.setNotional(BigDecimal.valueOf(1000000));
         leg1.setRate(0.05);
+        leg1.setLegType("floating");
+        leg1.setPayReceiveFlag("pay");
+        leg1.setIndexId(1000L);
 
         TradeLegDTO leg2 = new TradeLegDTO();
         leg2.setNotional(BigDecimal.valueOf(1000000));
-        leg2.setRate(0.0);
+        leg2.setRate(0.01);
+        leg2.setLegType("fixed");
+        leg2.setPayReceiveFlag("receive");
 
         tradeDTO.setTradeLegs(Arrays.asList(leg1, leg2));
 
@@ -141,7 +163,7 @@ class TradeServiceTest {
         });
 
         // Test that error with correct message is thrown
-        assertEquals("TRADE VALIDATION FAILED: Start date cannot be before trade date", exception.getMessage());
+        assertEquals("TRADE VALIDATION FAILED:\nStart date cannot be before trade date\n", exception.getMessage());
     }
 
     @Test
@@ -154,7 +176,7 @@ class TradeServiceTest {
             tradeService.createTrade(tradeDTO);
         });
 
-        assertTrue(exception.getMessage().contains("exactly 2 legs"));
+        assertTrue(exception.getMessage().contains("Trade must have exactly two legs"));
     }
 
     @Test
@@ -229,9 +251,18 @@ class TradeServiceTest {
         tradeDTO.setTradeStartDate(LocalDate.now());
         tradeDTO.setTradeMaturityDate(LocalDate.now().plusYears(years).plusMonths(months));
 
+        LegType legType = new LegType();
+        Index index = new Index();
+        PayRec payRec = new PayRec();
+
         when(bookRepository.findById(123L)).thenReturn(Optional.of(book));
         when(counterpartyRepository.findById(345L)).thenReturn(Optional.of(counterparty));
         when(tradeStatusRepository.findByTradeStatus("NEW")).thenReturn(Optional.of(tradeStatus));
+
+        when(legTypeRepository.findByType(anyString())).thenReturn(Optional.of(legType));
+        when(indexRepository.findById(anyLong())).thenReturn(Optional.of(index));
+        when(payRecRepository.findByPayRec(anyString())).thenReturn(Optional.of(payRec));
+
 
         when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
 
