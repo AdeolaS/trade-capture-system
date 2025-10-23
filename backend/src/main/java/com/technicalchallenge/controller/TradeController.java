@@ -48,9 +48,18 @@ public class TradeController {
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
         @ApiResponse(responseCode = "500", description = "Internal server error"),
-        @ApiResponse(responseCode = "400", description = "Invalid input")
+        @ApiResponse(responseCode = "400", description = "Invalid input"),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Request not authorised")
     })
-    public ResponseEntity<?> getTradesWithRSQL(@RequestParam String query) {
+    public ResponseEntity<?> getTradesWithRSQL(
+                @Parameter(description = "Id of user seeking to perform action", required = true)
+                @RequestParam Long userId,
+                @Parameter(description = "RSQL Query", required = true)
+                @RequestParam String query) {
+
+        if (!tradeService.validateUserPrivileges(userId, "VIEW")) {
+            return ResponseEntity.status(403).body("User " + userId + " is not authorized to VIEW trades.");
+        }
         logger.info("Fetching specified trades: {}", query);
 
         try {
@@ -76,12 +85,20 @@ public class TradeController {
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
         @ApiResponse(responseCode = "500", description = "Internal server error"),
-        @ApiResponse(responseCode = "400", description = "Invalid pagination parameters")
+        @ApiResponse(responseCode = "400", description = "Invalid pagination parameters"),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Request not authorised")
     })
     public ResponseEntity<?> paginateTrades(
+            @Parameter(description = "Id of user seeking to perform action", required = true)
+            @RequestParam Long userId,
+            @Parameter(description = "Requested page number. Default value is 0 (which is the first page)", required = false)
             @RequestParam(defaultValue = "0") int pageNum,
+            @Parameter(description = "Requested number of trades on page. Default value is 3", required = false)
             @RequestParam(defaultValue = "3") int pageSize) {
 
+        if (!tradeService.validateUserPrivileges(userId, "VIEW")) {
+            return ResponseEntity.status(403).body("User " + userId + " is not authorized to VIEW trades.");
+        }
         logger.info("Fetching paginated trades: Page Number - {}, Page Size - {}", pageNum, pageSize);
         try {
             Page<Trade> pageOfTrades = tradeService.paginateTrades(pageNum, pageSize);

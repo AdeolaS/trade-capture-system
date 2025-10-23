@@ -47,9 +47,12 @@ public class TradeControllerTest {
     private ObjectMapper objectMapper;
     private TradeDTO tradeDTO;
     private Trade trade;
+    private Long userId;
 
     @BeforeEach
     void setUp() {
+        userId = 1000L;
+        
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
@@ -106,10 +109,12 @@ public class TradeControllerTest {
         // Given
         String query = "book.name==Testbook";
         when(tradeService.getTradesWithRSQL(query)).thenReturn(List.of(trade));
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
 
         // When/Then
         mockMvc.perform(get("/api/trades/rsql")
                         .param("query", query)
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
@@ -120,13 +125,32 @@ public class TradeControllerTest {
     }
 
     @Test
+    void testGetTradesWithRSQL_ForbiddenUserId() throws Exception {
+        Long forbiddenId = 403L;
+        String query = "book.name==Testbook";
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(false);
+        
+        mockMvc.perform(get("/api/trades/rsql")
+                        .param("query", query)
+                        .param("userId", String.valueOf(forbiddenId))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string("User 403 is not authorized to VIEW trades."));
+
+        verify(tradeService, times(0)).getTradesWithRSQL(query);
+    }
+
+    @Test
     void testGetTradesWithRSQL_NoValue() throws Exception {
         String query = "counterparty.name=";
+        
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
         when(tradeService.getTradesWithRSQL(query))
                 .thenThrow(new IllegalArgumentException("cz.jirutka.rsql.parser.TokenMgrError: Lexical error at line 1, column 19.  Encountered: <EOF> after : \"\""));
 
         mockMvc.perform(get("/api/trades/rsql")
                         .param("query", query)
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Invalid query: cz.jirutka.rsql.parser.TokenMgrError: Lexical error at line 1, column 19.  Encountered: <EOF> after : \"\""));
@@ -137,10 +161,12 @@ public class TradeControllerTest {
     @Test
     void testGetTradesWithRSQL_UnknownField() throws Exception {
         String query = "counterparty.unknownField==X";
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
         when(tradeService.getTradesWithRSQL(query))
                 .thenThrow(new RuntimeException("Error building predicate for property: counterparty.unknownField — org.hibernate.query.SemanticException: Could not resolve attribute 'unknownField' of 'com.technicalchallenge.model.Counterparty'"));
 
         mockMvc.perform(get("/api/trades/rsql")
+                        .param("userId", String.valueOf(userId))
                         .param("query", query)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
@@ -152,6 +178,7 @@ public class TradeControllerTest {
     @Test
     void testGetTradesWithRSQL_EmptyQuery() throws Exception {
         String query = "";
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
         when(tradeService.getTradesWithRSQL(query))
                 .thenThrow(new IllegalArgumentException("cz.jirutka.rsql.parser.ParseException: Encountered \"<EOF>\" at line 0, column 0.\r\n" + //
                                         "Was expecting one of:\r\n" + //
@@ -160,6 +187,7 @@ public class TradeControllerTest {
 
         mockMvc.perform(get("/api/trades/rsql")
                         .param("query", query)
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Invalid query: cz.jirutka.rsql.parser.ParseException: Encountered \"<EOF>\" at line 0, column 0.\r\n" + //
@@ -173,11 +201,13 @@ public class TradeControllerTest {
     @Test
     void testGetTradesWithRSQL_TooManyEquals() throws Exception {
         String query = "tradeDate===2025-01-01";
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
         when(tradeService.getTradesWithRSQL(query))
                 .thenThrow(new IllegalArgumentException("cz.jirutka.rsql.parser.TokenMgrError: Lexical error at line 1, column 13.  Encountered: \"2\" (50), after : \"=\""));
 
         mockMvc.perform(get("/api/trades/rsql")
                         .param("query", query)
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Invalid query: cz.jirutka.rsql.parser.TokenMgrError: Lexical error at line 1, column 13.  Encountered: \"2\" (50), after : \"=\""));
@@ -188,10 +218,12 @@ public class TradeControllerTest {
     @Test
     void testGetTradesWithRSQL_UnexpectedError() throws Exception {
         String query = "book.name==TestBook";
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
         when(tradeService.getTradesWithRSQL(query))
                 .thenThrow(new RuntimeException("Database connection failed"));
 
         mockMvc.perform(get("/api/trades/rsql")
+                        .param("userId", String.valueOf(userId))
                         .param("query", query)
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
@@ -211,11 +243,13 @@ public class TradeControllerTest {
 
         when(tradeService.paginateTrades(pageNum, pageSize)).thenReturn(tradePage);
         when(tradeMapper.toDto(any(Trade.class))).thenReturn(tradeDTO);
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
 
         // When / Then
         mockMvc.perform(get("/api/trades/filter")
                         .param("pageNum", String.valueOf(pageNum))
                         .param("pageSize", String.valueOf(pageSize))
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 // Validate pagination info
@@ -229,12 +263,34 @@ public class TradeControllerTest {
     }
 
     @Test
+    void testPaginateTrades_ForbiddenUserId() throws Exception {
+        // Given
+        Long forbiddenId = 403L;
+        int pageNum = -1;
+        int pageSize = 3;
+
+        when(tradeService.validateUserPrivileges(eq(forbiddenId), eq("VIEW"))).thenReturn(false);
+
+        // When / Then
+        mockMvc.perform(get("/api/trades/filter")
+                        .param("pageNum", String.valueOf(pageNum))
+                        .param("pageSize", String.valueOf(pageSize))
+                        .param("userId", String.valueOf(forbiddenId))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string("User 403 is not authorized to VIEW trades."));
+
+        verify(tradeService, times(0)).paginateTrades(pageNum, pageSize);
+    }
+
+    @Test
     void testPaginateTrades_NegativePageNumber() throws Exception {
         // Given
         int pageNum = -1;
         int pageSize = 3;
 
         // Simulate that the service throws an Exception
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
         when(tradeService.paginateTrades(pageNum, pageSize))
                 .thenThrow(new RuntimeException("\n Requested Page number must be non-negative"));
 
@@ -242,6 +298,7 @@ public class TradeControllerTest {
         mockMvc.perform(get("/api/trades/filter")
                         .param("pageNum", String.valueOf(pageNum))
                         .param("pageSize", String.valueOf(pageSize))
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Pagination Error: \n Requested Page number must be non-negative"));
@@ -256,6 +313,7 @@ public class TradeControllerTest {
         int pageSize = -3;
 
         // Simulate that the service throws an Exception
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
         when(tradeService.paginateTrades(pageNum, pageSize))
                 .thenThrow(new RuntimeException("\n Page size must be more than zero"));
 
@@ -263,6 +321,7 @@ public class TradeControllerTest {
         mockMvc.perform(get("/api/trades/filter")
                         .param("pageNum", String.valueOf(pageNum))
                         .param("pageSize", String.valueOf(pageSize))
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Pagination Error: \n Page size must be more than zero"));
@@ -302,16 +361,19 @@ public class TradeControllerTest {
     @Test
     void testCreateTrade() throws Exception {
         // Given
+        when(tradeService.validateUserPrivileges(eq(userId), eq("CREATE"))).thenReturn(true);
         when(tradeService.saveTrade(any(Trade.class), any(TradeDTO.class))).thenReturn(trade);
         doNothing().when(tradeService).populateReferenceDataByName(any(Trade.class), any(TradeDTO.class));
 
         // When/Then
         mockMvc.perform(post("/api/trades")
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(tradeDTO)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.tradeId", is(1001)));
 
+        verify(tradeService).validateUserPrivileges(eq(userId), eq("CREATE"));
         verify(tradeService).saveTrade(any(Trade.class), any(TradeDTO.class));
         verify(tradeService).populateReferenceDataByName(any(Trade.class), any(TradeDTO.class));
     }
@@ -323,17 +385,20 @@ public class TradeControllerTest {
         invalidDTO.setBookName("TestBook");
         invalidDTO.setCounterpartyName("TestCounterparty");
         // Trade date is purposely missing
+        when(tradeService.validateUserPrivileges(eq(userId), eq("CREATE"))).thenReturn(true);
 
         doThrow(new RuntimeException("Trade date is required"))
             .when(tradeMapper).toEntity(any(TradeDTO.class));
 
         // When/Then
         mockMvc.perform(post("/api/trades")
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidDTO)))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Error creating trade: Trade date is required"));
 
+        verify(tradeService).validateUserPrivileges(eq(userId), eq("CREATE"));
         verify(tradeService, never()).saveTrade(any(Trade.class), any(TradeDTO.class));
     }
 
@@ -343,6 +408,7 @@ public class TradeControllerTest {
         TradeDTO invalidDTO = new TradeDTO();
         invalidDTO.setTradeDate(LocalDate.now());
         invalidDTO.setCounterpartyName("TestCounterparty");
+        when(tradeService.validateUserPrivileges(eq(userId), eq("CREATE"))).thenReturn(true);
         // Book name is purposely missing
 
         doThrow(new RuntimeException("Book and Counterparty are required"))
@@ -351,11 +417,13 @@ public class TradeControllerTest {
 
         // When/Then
         mockMvc.perform(post("/api/trades")
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(invalidDTO)))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string("Error creating trade: Book and Counterparty are required"));
 
+        verify(tradeService).validateUserPrivileges(eq(userId), eq("CREATE"));
         verify(tradeService, never()).saveTrade(any(Trade.class), any(TradeDTO.class));
     }
 
