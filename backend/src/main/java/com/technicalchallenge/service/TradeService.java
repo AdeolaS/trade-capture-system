@@ -523,20 +523,6 @@ public class TradeService {
     public Trade amendTrade(Long tradeId, TradeDTO tradeDTO) {
         logger.info("Amending trade with ID: {}", tradeId);
 
-        // Validate business rules
-        ValidationResult validationResultBusiness = validateTradeBusinessRules(tradeDTO);
-        // Validate tradeleg consistensies
-        ValidationResult validationResultLegs = validateTradeLegConsistency(tradeDTO.getTradeLegs());
-
-        if (!validationResultBusiness.isValid()) {
-            // Join all the error messages together into one string
-            String errorMessagesBusiness = getValidationResultErrorMessages(validationResultBusiness);
-            String errorMessagesLegs = getValidationResultErrorMessages(validationResultLegs);
-
-            logger.warn("Trade amendment failed: {}. {}", errorMessagesBusiness, errorMessagesLegs);
-            throw new RuntimeException("TRADE VALIDATION FAILED:\n" + errorMessagesBusiness + "\n" + errorMessagesLegs);
-        }
-
         Optional<Trade> existingTradeOpt = getTradeById(tradeId);
         if (existingTradeOpt.isEmpty()) {
             throw new RuntimeException("Trade not found: " + tradeId);
@@ -560,10 +546,33 @@ public class TradeService {
         // Populate reference data
         populateReferenceDataByName(amendedTrade, tradeDTO);
 
+        // Validate business rules
+        ValidationResult validationResultBusiness = validateTradeBusinessRules(tradeDTO);
+        // Validate tradeleg consistensies
+        ValidationResult validationResultLegs = validateTradeLegConsistency(tradeDTO.getTradeLegs());
+        // Validate reference data
+        ValidationResult validationResultReferenceData = validateReferenceData(amendedTrade);
+
         // Set status to AMENDED
         TradeStatus amendedStatus = tradeStatusRepository.findByTradeStatus("AMENDED")
                 .orElseThrow(() -> new RuntimeException("AMENDED status not found"));
         amendedTrade.setTradeStatus(amendedStatus);
+
+        //Check if any of the validations have failed
+        if (!validationResultBusiness.isValid() || !validationResultLegs.isValid() || !validationResultReferenceData.isValid()) {
+            // Collect validation errors
+            List<String> errorMessages = Stream.of(
+                    getValidationResultErrorMessages(validationResultBusiness),
+                    getValidationResultErrorMessages(validationResultLegs),
+                    getValidationResultErrorMessages(validationResultReferenceData)
+                )
+                .filter(msg -> msg != null && !msg.isBlank())  // remove empty or null messages
+                .toList();
+
+            String combinedErrors = String.join("; ", errorMessages);
+            logger.warn("Trade creation failed: {}", combinedErrors);
+            throw new RuntimeException("TRADE VALIDATION FAILED: " + combinedErrors);
+        }
 
         Trade savedTrade = tradeRepository.save(amendedTrade);
 

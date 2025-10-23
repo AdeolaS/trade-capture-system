@@ -129,10 +129,6 @@ class TradeServiceTest {
         traderUser.setId(123L);
         traderUser.setActive(true);
 
-        tradeDTO.setBookId(book.getId());
-        tradeDTO.setCounterpartyId(counterparty.getId());
-        tradeDTO.setTraderUserId(traderUser.getId());
-
         trade = new Trade();
         trade.setId(1L);
         trade.setTradeId(100001L);
@@ -143,6 +139,10 @@ class TradeServiceTest {
         tradeStatus = new TradeStatus();
         tradeStatus.setId(202L);
         tradeStatus.setTradeStatus("NEW");
+
+        tradeDTO.setBookId(book.getId());
+        tradeDTO.setCounterpartyId(counterparty.getId());
+        tradeDTO.setTraderUserId(traderUser.getId());
 
         tradeLeg = new TradeLeg();
         tradeLeg.setLegId(303L);
@@ -225,10 +225,15 @@ class TradeServiceTest {
     void testAmendTrade_Success() {
         // Given
         trade.setVersion(2);
+        //tradeDTO.setTradeStatus("AMENDED");
 
         when(tradeRepository.findByTradeIdAndActiveTrue(100001L)).thenReturn(Optional.of(trade));
-        when(tradeStatusRepository.findByTradeStatus("AMENDED")).thenReturn(Optional.of(new com.technicalchallenge.model.TradeStatus()));
+        when(tradeStatusRepository.findByTradeStatus("AMENDED")).thenReturn(Optional.of(tradeStatus));
         when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
+        when(bookRepository.findById(anyLong())).thenReturn(Optional.of(book));
+        when(counterpartyRepository.findById(anyLong())).thenReturn(Optional.of(counterparty));
+        // when(tradeStatusRepository.findByTradeStatus("NEW")).thenReturn(Optional.of(tradeStatus));
+        when(applicationUserRepository.findById(anyLong())).thenReturn(Optional.of(traderUser));
 
         when(tradeLegRepository.save(any(TradeLeg.class))).thenReturn(tradeLeg);
 
@@ -275,12 +280,11 @@ class TradeServiceTest {
         when(bookRepository.findById(anyLong())).thenReturn(Optional.of(book));
         when(counterpartyRepository.findById(anyLong())).thenReturn(Optional.of(counterparty));
         when(tradeStatusRepository.findByTradeStatus("NEW")).thenReturn(Optional.of(tradeStatus));
+        when(applicationUserRepository.findById(anyLong())).thenReturn(Optional.of(traderUser));
 
         when(legTypeRepository.findByType(anyString())).thenReturn(Optional.of(legType));
         when(indexRepository.findById(anyLong())).thenReturn(Optional.of(index));
         when(payRecRepository.findByPayRec(anyString())).thenReturn(Optional.of(payRec));
-        when(applicationUserRepository.findById(anyLong())).thenReturn(Optional.of(traderUser));
-
 
         when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
 
