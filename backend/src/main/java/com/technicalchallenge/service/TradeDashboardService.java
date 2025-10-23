@@ -33,11 +33,11 @@
 //         return tradeRepository.findByTraderUser_IdAndBook_Id(bookId, userId);
 //     }
 
-//     // public TradeSummaryDTO getTradeSummaryForUser(Long userId) {
+//     public TradeSummaryDTO getTradeSummaryForUser(Long userId) {
 
-//     //     TradeSummary tradeSummary = buildTradeSummary(userId);
+//         TradeSummary tradeSummary = buildTradeSummary(userId);
 
-//     // }
+//     }
 
 //     private TradeSummary buildTradeSummary(Long userID) {
 

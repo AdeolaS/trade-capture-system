@@ -2,6 +2,7 @@ package com.technicalchallenge.service;
 
 import com.technicalchallenge.dto.TradeDTO;
 import com.technicalchallenge.dto.TradeLegDTO;
+import com.technicalchallenge.model.ApplicationUser;
 import com.technicalchallenge.model.Book;
 import com.technicalchallenge.model.Cashflow;
 import com.technicalchallenge.model.Counterparty;
@@ -12,6 +13,7 @@ import com.technicalchallenge.model.Schedule;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.model.TradeLeg;
 import com.technicalchallenge.model.TradeStatus;
+import com.technicalchallenge.repository.ApplicationUserRepository;
 import com.technicalchallenge.repository.BookRepository;
 import com.technicalchallenge.repository.CashflowRepository;
 import com.technicalchallenge.repository.CounterpartyRepository;
@@ -72,6 +74,9 @@ class TradeServiceTest {
     private PayRecRepository payRecRepository;
 
     @Mock
+    private ApplicationUserRepository applicationUserRepository;
+
+    @Mock
     private AdditionalInfoService additionalInfoService;
 
     @InjectMocks
@@ -83,6 +88,7 @@ class TradeServiceTest {
     private Counterparty counterparty;
     private TradeStatus tradeStatus;
     private TradeLeg tradeLeg;
+    private ApplicationUser traderUser;
 
 
     @BeforeEach
@@ -112,17 +118,27 @@ class TradeServiceTest {
         book = new Book();
         book.setId(123L);
         book.setBookName("Test Book");
+        book.setActive(true);
 
         counterparty = new Counterparty();
         counterparty.setId(345L);
         counterparty.setName("Test Counterparty");
+        counterparty.setActive(true);
+
+        traderUser = new ApplicationUser();
+        traderUser.setId(123L);
+        traderUser.setActive(true);
 
         tradeDTO.setBookId(book.getId());
         tradeDTO.setCounterpartyId(counterparty.getId());
+        tradeDTO.setTraderUserId(traderUser.getId());
 
         trade = new Trade();
         trade.setId(1L);
         trade.setTradeId(100001L);
+        trade.setBook(book);
+        trade.setCounterparty(counterparty);
+        trade.setTradeStatus(tradeStatus);
 
         tradeStatus = new TradeStatus();
         tradeStatus.setId(202L);
@@ -138,7 +154,8 @@ class TradeServiceTest {
         when(bookRepository.findById(123L)).thenReturn(Optional.of(book));
         when(counterpartyRepository.findById(345L)).thenReturn(Optional.of(counterparty));
         when(tradeStatusRepository.findByTradeStatus("NEW")).thenReturn(Optional.of(tradeStatus));
-
+        
+        when(applicationUserRepository.findById(anyLong())).thenReturn(Optional.of(traderUser));
         when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
 
         when(tradeLegRepository.save(any(TradeLeg.class))).thenReturn(tradeLeg);
@@ -163,7 +180,7 @@ class TradeServiceTest {
         });
 
         // Test that error with correct message is thrown
-        assertEquals("TRADE VALIDATION FAILED:\nStart date cannot be before trade date\n", exception.getMessage());
+        assertTrue(exception.getMessage().contains("TRADE VALIDATION FAILED: Start date cannot be before trade date"));
     }
 
     @Test
@@ -255,19 +272,19 @@ class TradeServiceTest {
         Index index = new Index();
         PayRec payRec = new PayRec();
 
-        when(bookRepository.findById(123L)).thenReturn(Optional.of(book));
-        when(counterpartyRepository.findById(345L)).thenReturn(Optional.of(counterparty));
+        when(bookRepository.findById(anyLong())).thenReturn(Optional.of(book));
+        when(counterpartyRepository.findById(anyLong())).thenReturn(Optional.of(counterparty));
         when(tradeStatusRepository.findByTradeStatus("NEW")).thenReturn(Optional.of(tradeStatus));
 
         when(legTypeRepository.findByType(anyString())).thenReturn(Optional.of(legType));
         when(indexRepository.findById(anyLong())).thenReturn(Optional.of(index));
         when(payRecRepository.findByPayRec(anyString())).thenReturn(Optional.of(payRec));
+        when(applicationUserRepository.findById(anyLong())).thenReturn(Optional.of(traderUser));
 
 
         when(tradeRepository.save(any(Trade.class))).thenReturn(trade);
 
         when(tradeLegRepository.save(any(TradeLeg.class))).thenReturn(tradeLeg);
-        
         // When
         tradeService.createTrade(tradeDTO);
         

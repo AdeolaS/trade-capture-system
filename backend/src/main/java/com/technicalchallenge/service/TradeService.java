@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Service
 @Transactional
@@ -261,28 +262,34 @@ public class TradeService {
         return validationResult;
     }
 
-    public ValidationResult validateReferenceDataDRAFT(Trade trade) {
+    public ValidationResult validateReferenceData(Trade trade) {
 
         ValidationResult validationResult = new ValidationResult();
 
         if (trade.getBook() == null) {
             validationResult.addError("book", "Book not found or not set", "ERROR");
+        } else {
+            if (!trade.getBook().isActive()) {
+                validationResult.addError("book", "Book must be active", "ERROR");
+            }
         }
-        if (!trade.getBook().isActive()) {
-            validationResult.addError("book", "Book must be active", "ERROR");
-        }
+        
         if (trade.getCounterparty() == null) {
             validationResult.addError("counterparty", "Counterparty not found or not set", "ERROR");
+        } else {
+            if (!trade.getCounterparty().isActive()) {
+                validationResult.addError("counterparty", "Counterparty must be active", "ERROR");
+            }
         }
-        if (!trade.getCounterparty().isActive()) {
-            validationResult.addError("counterparty", "Counterparty must be active", "ERROR");
-        }
+        
         if (trade.getTraderUser() == null) {
-            validationResult.addError("counterparty", "Trader User not found or not set", "ERROR");
+            validationResult.addError("traderUser", "Trader User not found or not set", "ERROR");
+        } else {
+            if (!trade.getTraderUser().isActive()) {
+                validationResult.addError("traderUser", "Trader User must be active", "ERROR");
+            }
         }
-        if (!trade.getTraderUser().isActive()) {
-            validationResult.addError("counterparty", "Trader User must be active", "ERROR");
-        }
+        
         if (trade.getTradeStatus() == null) {
             validationResult.addError("tradeStatus", "Trade status not found or not set", "ERROR");
         }
@@ -302,21 +309,6 @@ public class TradeService {
 
         logger.info("Creating new trade with ID: {}", tradeDTO.getTradeId());
 
-        // Validate business rules
-        ValidationResult validationResultBusiness = validateTradeBusinessRules(tradeDTO);
-        // Validate tradeleg consistensies
-        ValidationResult validationResultLegs = validateTradeLegConsistency(tradeDTO.getTradeLegs());
-
-        if (!validationResultBusiness.isValid() || !validationResultLegs.isValid()) {
-            // Join all the error messages together into one string
-            String errorMessagesBusiness = getValidationResultErrorMessages(validationResultBusiness);
-            String errorMessagesLegs = getValidationResultErrorMessages(validationResultLegs);
-
-            logger.warn("Trade creation failed: {}. {}", errorMessagesBusiness, errorMessagesLegs);
-
-            throw new RuntimeException("TRADE VALIDATION FAILED:\n" + errorMessagesBusiness + "\n" + errorMessagesLegs);
-        }
-
         // Generate trade ID if not provided
         if (tradeDTO.getTradeId() == null) {
             // Generate sequential trade ID starting from 10000
@@ -327,6 +319,7 @@ public class TradeService {
 
         // Create trade entity
         Trade trade = mapDTOToEntity(tradeDTO);
+        
         trade.setVersion(1);
         trade.setActive(true);
         trade.setCreatedDate(LocalDateTime.now());
@@ -339,6 +332,29 @@ public class TradeService {
 
         // Populate reference data
         populateReferenceDataByName(trade, tradeDTO);
+
+        // Validate business rules
+        ValidationResult validationResultBusiness = validateTradeBusinessRules(tradeDTO);
+        // Validate tradeleg consistensies
+        ValidationResult validationResultLegs = validateTradeLegConsistency(tradeDTO.getTradeLegs());
+        // Validate reference data
+        ValidationResult validationResultReferenceData = validateReferenceData(trade);
+
+        //Check if any of the validations have failed
+        if (!validationResultBusiness.isValid() || !validationResultLegs.isValid() || !validationResultReferenceData.isValid()) {
+            // Collect validation errors
+            List<String> errorMessages = Stream.of(
+                    getValidationResultErrorMessages(validationResultBusiness),
+                    getValidationResultErrorMessages(validationResultLegs),
+                    getValidationResultErrorMessages(validationResultReferenceData)
+                )
+                .filter(msg -> msg != null && !msg.isBlank())  // remove empty or null messages
+                .toList();
+
+            String combinedErrors = String.join("; ", errorMessages);
+            logger.warn("Trade creation failed: {}", combinedErrors);
+            throw new RuntimeException("TRADE VALIDATION FAILED: " + combinedErrors);
+        }
 
         Trade savedTrade = tradeRepository.save(trade);
 
@@ -596,25 +612,6 @@ public class TradeService {
         return tradeRepository.save(trade);
     }
 
-    private void validateTradeCreation(TradeDTO tradeDTO) {
-        // Validate dates - Fixed to use consistent field names
-        if (tradeDTO.getTradeStartDate() != null && tradeDTO.getTradeDate() != null) {
-            if (tradeDTO.getTradeStartDate().isBefore(tradeDTO.getTradeDate())) {
-                throw new RuntimeException("Start date cannot be before trade date");
-            }
-        }
-        if (tradeDTO.getTradeMaturityDate() != null && tradeDTO.getTradeStartDate() != null) {
-            if (tradeDTO.getTradeMaturityDate().isBefore(tradeDTO.getTradeStartDate())) {
-                throw new RuntimeException("Maturity date cannot be before start date");
-            }
-        }
-
-        // Validate trade has exactly 2 legs
-        if (tradeDTO.getTradeLegs() == null || tradeDTO.getTradeLegs().size() != 2) {
-            throw new RuntimeException("Trade must have exactly 2 legs");
-        }
-    }
-
     private Trade mapDTOToEntity(TradeDTO dto) {
         Trade trade = new Trade();
         trade.setTradeId(dto.getTradeId());
@@ -765,7 +762,6 @@ public class TradeService {
         if (schedule == null || schedule.trim().isEmpty()) {
             return 3; // Default to quarterly
         }
-
         schedule = schedule.trim();
 
         // Handle common schedule names
@@ -802,7 +798,6 @@ public class TradeService {
             dates.add(currentDate);
             currentDate = currentDate.plusMonths(monthsInterval);
         }
-
         return dates;
     }
 
@@ -828,20 +823,20 @@ public class TradeService {
         return BigDecimal.ZERO;
     }
 
-    private void validateReferenceData(Trade trade) {
-        // Validate essential reference data is populated
-        if (trade.getBook() == null) {
-            throw new RuntimeException("Book not found or not set");
-        }
-        if (trade.getCounterparty() == null) {
-            throw new RuntimeException("Counterparty not found or not set");
-        }
-        if (trade.getTradeStatus() == null) {
-            throw new RuntimeException("Trade status not found or not set");
-        }
+    // private void validateReferenceData(Trade trade) {
+    //     // Validate essential reference data is populated
+    //     if (trade.getBook() == null) {
+    //         throw new RuntimeException("Book not found or not set");
+    //     }
+    //     if (trade.getCounterparty() == null) {
+    //         throw new RuntimeException("Counterparty not found or not set");
+    //     }
+    //     if (trade.getTradeStatus() == null) {
+    //         throw new RuntimeException("Trade status not found or not set");
+    //     }
 
-        logger.debug("Reference data validation passed for trade");
-    }
+    //     logger.debug("Reference data validation passed for trade");
+    // }
 
     // NEW METHOD: Generate the next trade ID (sequential)
     private Long generateNextTradeId() {
