@@ -118,15 +118,28 @@ public class TradeController {
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
         @ApiResponse(responseCode = "500", description = "Internal server error"),
-        @ApiResponse(responseCode = "400", description = "Invalid search criteria")
+        @ApiResponse(responseCode = "400", description = "Invalid search criteria"),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Request not authorised")
     })
     public ResponseEntity<?> searchTrades(
-            @RequestParam (required = false) LocalDate earliestTradeDate, 
+            @Parameter(description = "Id of user seeking to perform action", required = true)
+            @RequestParam Long userId,
+            @Parameter(description = "Earliest possible date of the trades being searched", required = false)
+            @RequestParam (required = false) LocalDate earliestTradeDate,
+            @Parameter(description = "Lastest possible date of the trades being searched", required = false) 
             @RequestParam (required = false) LocalDate latestTradeDate, 
+            @Parameter(description = "Id of the trade status", required = false)
             @RequestParam (required = false) Long tradeStatusId, 
+            @Parameter(description = "Id of the trader who's trades are being searched for", required = false)
             @RequestParam (required = false) Long traderId, 
+            @Parameter(description = "Id of book", required = false)
             @RequestParam (required = false) Long bookId, 
+            @Parameter(description = "Id of counterparty", required = false)
             @RequestParam (required = false) Long counterpartyId) {
+
+        if (!tradeService.validateUserPrivileges(userId, "VIEW")) {
+            return ResponseEntity.status(403).body("User " + userId + " is not authorized to VIEW trades.");
+        }
 
         logger.info("Fetching trades with specified properties: {}, {}, {}, {}, {}, {}", 
             earliestTradeDate, latestTradeDate, tradeStatusId, traderId, bookId, counterpartyId);
@@ -150,13 +163,22 @@ public class TradeController {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved all trades",
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
-        @ApiResponse(responseCode = "500", description = "Internal server error")
+        @ApiResponse(responseCode = "500", description = "Internal server error"),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Request not authorised")
     })
-    public List<TradeDTO> getAllTrades() {
+    public ResponseEntity<?> getAllTrades(
+            @Parameter(description = "Id of user seeking to perform action", required = true)
+            @RequestParam Long userId) {
+
+        if (!tradeService.validateUserPrivileges(userId, "VIEW")) {
+            return ResponseEntity.status(403).body("User " + userId + " is not authorized to VIEW trades.");
+        }
         logger.info("Fetching all trades");
-        return tradeService.getAllTrades().stream()
-                .map(tradeMapper::toDto)
-                .toList();
+        List<TradeDTO> listOfTradeDTOs = tradeService.getAllTrades().stream()
+                                    .map(tradeMapper::toDto)
+                                    .toList();
+        
+        return ResponseEntity.ok().body(listOfTradeDTOs);
     }
 
     @GetMapping("/{id}")
@@ -167,11 +189,18 @@ public class TradeController {
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
         @ApiResponse(responseCode = "404", description = "Trade not found"),
-        @ApiResponse(responseCode = "400", description = "Invalid trade ID format")
+        @ApiResponse(responseCode = "400", description = "Invalid trade ID format"),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Request not authorised")
     })
-    public ResponseEntity<TradeDTO> getTradeById(
+    public ResponseEntity<?> getTradeById(
+            @Parameter(description = "Id of user seeking to perform action", required = true)
+            @RequestParam Long userId,
             @Parameter(description = "Unique identifier of the trade", required = true)
             @PathVariable(name = "id") Long id) {
+
+        if (!tradeService.validateUserPrivileges(userId, "VIEW")) {
+            return ResponseEntity.status(403).body("User " + userId + " is not authorized to VIEW trades.");
+        }
         logger.debug("Fetching trade by id: {}", id);
         return tradeService.getTradeById(id)
                 .map(tradeMapper::toDto)
@@ -187,7 +216,8 @@ public class TradeController {
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
         @ApiResponse(responseCode = "400", description = "Invalid trade data or business rule violation"),
-        @ApiResponse(responseCode = "500", description = "Internal server error during trade creation")
+        @ApiResponse(responseCode = "500", description = "Internal server error during trade creation"),
+        @ApiResponse(responseCode = "403", description = "Forbidden: Request not authorised")
     })
     public ResponseEntity<?> createTrade(
             @Parameter(description = "Id of user seeking to perform action", required = true)
@@ -225,10 +255,16 @@ public class TradeController {
         @ApiResponse(responseCode = "403", description = "Insufficient privileges to update trade")
     })
     public ResponseEntity<?> updateTrade(
+            @Parameter(description = "Id of user seeking to perform action", required = true)
+            @RequestParam Long userId,
             @Parameter(description = "Unique identifier of the trade to update", required = true)
             @PathVariable Long id,
             @Parameter(description = "Updated trade details", required = true)
             @Valid @RequestBody TradeDTO tradeDTO) {
+
+        if (!tradeService.validateUserPrivileges(userId, "AMEND")) {
+            return ResponseEntity.status(403).body("User " + userId + " is not authorized to AMEND trades.");
+        }
         logger.info("Updating trade with id: {}", id);
         try {
             if (!tradeDTO.getTradeId().equals(id)) {
@@ -254,8 +290,14 @@ public class TradeController {
         @ApiResponse(responseCode = "403", description = "Insufficient privileges to delete trade")
     })
     public ResponseEntity<?> deleteTrade(
+            @Parameter(description = "Id of user seeking to perform action", required = true)
+            @RequestParam Long userId,
             @Parameter(description = "Unique identifier of the trade to delete", required = true)
             @PathVariable Long id) {
+
+        if (!tradeService.validateUserPrivileges(userId, "CANCEL")) {
+            return ResponseEntity.status(403).body("User " + userId + " is not authorized to CANCEL trades.");
+        }
         logger.info("Deleting trade with id: {}", id);
         try {
             tradeService.deleteTrade(id);
@@ -278,8 +320,14 @@ public class TradeController {
         @ApiResponse(responseCode = "403", description = "Insufficient privileges to terminate trade")
     })
     public ResponseEntity<?> terminateTrade(
+            @Parameter(description = "Id of user seeking to perform action", required = true)
+            @RequestParam Long userId,
             @Parameter(description = "Unique identifier of the trade to terminate", required = true)
             @PathVariable Long id) {
+
+        if (!tradeService.validateUserPrivileges(userId, "TERMINATE")) {
+            return ResponseEntity.status(403).body("User " + userId + " is not authorized to TERMINATE trades.");
+        }
         logger.info("Terminating trade with id: {}", id);
         try {
             Trade terminatedTrade = tradeService.terminateTrade(id);
@@ -303,8 +351,14 @@ public class TradeController {
         @ApiResponse(responseCode = "403", description = "Insufficient privileges to cancel trade")
     })
     public ResponseEntity<?> cancelTrade(
+            @Parameter(description = "Id of user seeking to perform action", required = true)
+            @RequestParam Long userId,
             @Parameter(description = "Unique identifier of the trade to cancel", required = true)
             @PathVariable Long id) {
+
+        if (!tradeService.validateUserPrivileges(userId, "CANCEL")) {
+            return ResponseEntity.status(403).body("User " + userId + " is not authorized to CANCEL trades.");
+        }
         logger.info("Cancelling trade with id: {}", id);
         try {
             Trade cancelledTrade = tradeService.cancelTrade(id);

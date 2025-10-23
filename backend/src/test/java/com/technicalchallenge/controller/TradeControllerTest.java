@@ -85,14 +85,16 @@ public class TradeControllerTest {
     }
 
     @Test
-    void testGetAllTrades() throws Exception {
+    void testGetAllTrades_Success() throws Exception {
         // Given
         List<Trade> trades = List.of(trade); // Fixed: use List.of instead of Arrays.asList for single item
 
         when(tradeService.getAllTrades()).thenReturn(trades);
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
 
         // When/Then
         mockMvc.perform(get("/api/trades")
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$", hasSize(1)))
@@ -101,6 +103,20 @@ public class TradeControllerTest {
                 .andExpect(jsonPath("$[0].counterpartyName", is("TestCounterparty")));
 
         verify(tradeService).getAllTrades();
+    }
+
+    @Test
+    void testGetAllTrades_ForbiddenUserId() throws Exception {
+        Long forbiddenId = 403L;
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(false);
+        
+        mockMvc.perform(get("/api/trades")
+                        .param("userId", String.valueOf(forbiddenId))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string("User 403 is not authorized to VIEW trades."));
+
+        verify(tradeService, times(0)).getAllTrades();
     }
 
     @Test
@@ -333,9 +349,11 @@ public class TradeControllerTest {
     void testGetTradeById() throws Exception {
         // Given
         when(tradeService.getTradeById(1001L)).thenReturn(Optional.of(trade));
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
 
         // When/Then
         mockMvc.perform(get("/api/trades/1001")
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.tradeId", is(1001)))
@@ -349,9 +367,11 @@ public class TradeControllerTest {
     void testGetTradeByIdNotFound() throws Exception {
         // Given
         when(tradeService.getTradeById(9999L)).thenReturn(Optional.empty());
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
 
         // When/Then
         mockMvc.perform(get("/api/trades/9999")
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound());
 
@@ -435,9 +455,12 @@ public class TradeControllerTest {
 
         when(tradeService.amendTrade(eq(tradeId), any(TradeDTO.class))).thenReturn(trade);
         when(tradeMapper.toDto(any(Trade.class))).thenReturn(tradeDTO);
+        
+        when(tradeService.validateUserPrivileges(eq(userId), eq("AMEND"))).thenReturn(true);
 
         // When/Then
         mockMvc.perform(put("/api/trades/{id}", tradeId)
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(tradeDTO)))
                 .andExpect(status().isOk())
@@ -447,13 +470,37 @@ public class TradeControllerTest {
     }
 
     @Test
+    void testUpdateTrade_ForbiddenId() throws Exception {
+        // Given
+        Long tradeId = 1001L;
+        tradeDTO.setTradeId(tradeId);
+        Long forbiddenId = 403L;
+
+        when(tradeService.amendTrade(eq(tradeId), any(TradeDTO.class))).thenReturn(trade);
+        when(tradeMapper.toDto(any(Trade.class))).thenReturn(tradeDTO);
+        when(tradeService.validateUserPrivileges(eq(forbiddenId), eq("AMEND"))).thenReturn(false);
+
+        // When/Then
+        mockMvc.perform(put("/api/trades/{id}", tradeId)
+                        .param("userId", String.valueOf(forbiddenId))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(tradeDTO)))
+                .andExpect(status().isForbidden());
+        
+        verify(tradeService, times(0)).amendTrade(eq(tradeId), any(TradeDTO.class));
+    }
+
+
+    @Test
     void testUpdateTradeIdMismatch() throws Exception {
         // Given
         Long pathId = 1001L;
         tradeDTO.setTradeId(2002L); // Different from path ID
+        when(tradeService.validateUserPrivileges(eq(userId), eq("AMEND"))).thenReturn(true);
 
         // When/Then
         mockMvc.perform(put("/api/trades/{id}", pathId)
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(tradeDTO)))
                 .andExpect(status().isBadRequest())
@@ -466,13 +513,33 @@ public class TradeControllerTest {
     void testDeleteTrade() throws Exception {
         // Given
         doNothing().when(tradeService).deleteTrade(1001L);
+        when(tradeService.validateUserPrivileges(eq(userId), eq("CANCEL"))).thenReturn(true);
 
         // When/Then
         mockMvc.perform(delete("/api/trades/1001")
+                        .param("userId", String.valueOf(userId))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNoContent());
 
         verify(tradeService).deleteTrade(1001L);
+    }
+
+    @Test
+    void testDeleteTrade_ForbiddenUserId() throws Exception {
+        // Given
+        
+        Long forbiddenId = 403L;
+        doNothing().when(tradeService).deleteTrade(1001L);
+        when(tradeService.validateUserPrivileges(eq(forbiddenId), eq("CANCEL"))).thenReturn(false);
+
+        // When/Then
+        mockMvc.perform(delete("/api/trades/1001")
+                        .param("userId", String.valueOf(forbiddenId))
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string("User 403 is not authorized to CANCEL trades."));
+
+        verify(tradeService, times(0)).deleteTrade(1001L);
     }
 
     @Test
