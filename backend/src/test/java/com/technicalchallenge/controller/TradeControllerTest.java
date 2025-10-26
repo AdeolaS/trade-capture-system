@@ -47,11 +47,11 @@ public class TradeControllerTest {
     private ObjectMapper objectMapper;
     private TradeDTO tradeDTO;
     private Trade trade;
-    private Long userId;
+    private String userId;
 
     @BeforeEach
     void setUp() {
-        userId = 1000L;
+        userId = "1000";
         
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
@@ -107,7 +107,7 @@ public class TradeControllerTest {
 
     @Test
     void testGetAllTrades_ForbiddenUserId() throws Exception {
-        Long forbiddenId = 403L;
+        String forbiddenId = "403";
         when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(false);
         
         mockMvc.perform(get("/api/trades")
@@ -142,7 +142,7 @@ public class TradeControllerTest {
 
     @Test
     void testGetTradesWithRSQL_ForbiddenUserId() throws Exception {
-        Long forbiddenId = 403L;
+        String forbiddenId = "403";
         String query = "book.name==Testbook";
         when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(false);
         
@@ -281,7 +281,7 @@ public class TradeControllerTest {
     @Test
     void testPaginateTrades_ForbiddenUserId() throws Exception {
         // Given
-        Long forbiddenId = 403L;
+        String forbiddenId = "403";
         int pageNum = -1;
         int pageSize = 3;
 
@@ -474,7 +474,7 @@ public class TradeControllerTest {
         // Given
         Long tradeId = 1001L;
         tradeDTO.setTradeId(tradeId);
-        Long forbiddenId = 403L;
+        String forbiddenId = "403";
 
         when(tradeService.amendTrade(eq(tradeId), any(TradeDTO.class))).thenReturn(trade);
         when(tradeMapper.toDto(any(Trade.class))).thenReturn(tradeDTO);
@@ -528,7 +528,7 @@ public class TradeControllerTest {
     void testDeleteTrade_ForbiddenUserId() throws Exception {
         // Given
         
-        Long forbiddenId = 403L;
+        String forbiddenId = "403";
         doNothing().when(tradeService).deleteTrade(1001L);
         when(tradeService.validateUserPrivileges(eq(forbiddenId), eq("CANCEL"))).thenReturn(false);
 

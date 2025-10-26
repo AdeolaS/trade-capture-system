@@ -53,7 +53,7 @@ public class TradeController {
     })
     public ResponseEntity<?> getTradesWithRSQL(
                 @Parameter(description = "Id of user seeking to perform action", required = true)
-                @RequestParam Long userId,
+                @RequestParam String userId,
                 @Parameter(description = "RSQL Query", required = true)
                 @RequestParam String query) {
 
@@ -90,7 +90,7 @@ public class TradeController {
     })
     public ResponseEntity<?> paginateTrades(
             @Parameter(description = "Id of user seeking to perform action", required = true)
-            @RequestParam Long userId,
+            @RequestParam String userId,
             @Parameter(description = "Requested page number. Default value is 0 (which is the first page)", required = false)
             @RequestParam(defaultValue = "0") int pageNum,
             @Parameter(description = "Requested number of trades on page. Default value is 3", required = false)
@@ -123,7 +123,7 @@ public class TradeController {
     })
     public ResponseEntity<?> searchTrades(
             @Parameter(description = "Id of user seeking to perform action", required = true)
-            @RequestParam Long userId,
+            @RequestParam String userId,
             @Parameter(description = "Earliest possible date of the trades being searched", required = false)
             @RequestParam (required = false) LocalDate earliestTradeDate,
             @Parameter(description = "Lastest possible date of the trades being searched", required = false) 
@@ -168,7 +168,7 @@ public class TradeController {
     })
     public ResponseEntity<?> getAllTrades(
             @Parameter(description = "Id of user seeking to perform action", required = true)
-            @RequestParam Long userId) {
+            @RequestParam String userId) {
 
         if (!tradeService.validateUserPrivileges(userId, "VIEW")) {
             return ResponseEntity.status(403).body("User " + userId + " is not authorized to VIEW trades.");
@@ -194,7 +194,7 @@ public class TradeController {
     })
     public ResponseEntity<?> getTradeById(
             @Parameter(description = "Id of user seeking to perform action", required = true)
-            @RequestParam Long userId,
+            @RequestParam String userId,
             @Parameter(description = "Unique identifier of the trade", required = true)
             @PathVariable(name = "id") Long id) {
 
@@ -221,7 +221,7 @@ public class TradeController {
     })
     public ResponseEntity<?> createTrade(
             @Parameter(description = "Id of user seeking to perform action", required = true)
-            @RequestParam Long userId,
+            @RequestParam String userId,
             @Parameter(description = "Trade details for creation", required = true)
             @Valid @RequestBody TradeDTO tradeDTO) {
 
@@ -256,7 +256,7 @@ public class TradeController {
     })
     public ResponseEntity<?> updateTrade(
             @Parameter(description = "Id of user seeking to perform action", required = true)
-            @RequestParam Long userId,
+            @RequestParam String userId,
             @Parameter(description = "Unique identifier of the trade to update", required = true)
             @PathVariable Long id,
             @Parameter(description = "Updated trade details", required = true)
@@ -291,7 +291,7 @@ public class TradeController {
     })
     public ResponseEntity<?> deleteTrade(
             @Parameter(description = "Id of user seeking to perform action", required = true)
-            @RequestParam Long userId,
+            @RequestParam String userId,
             @Parameter(description = "Unique identifier of the trade to delete", required = true)
             @PathVariable Long id) {
 
@@ -321,7 +321,7 @@ public class TradeController {
     })
     public ResponseEntity<?> terminateTrade(
             @Parameter(description = "Id of user seeking to perform action", required = true)
-            @RequestParam Long userId,
+            @RequestParam String userId,
             @Parameter(description = "Unique identifier of the trade to terminate", required = true)
             @PathVariable Long id) {
 
@@ -352,7 +352,7 @@ public class TradeController {
     })
     public ResponseEntity<?> cancelTrade(
             @Parameter(description = "Id of user seeking to perform action", required = true)
-            @RequestParam Long userId,
+            @RequestParam String userId,
             @Parameter(description = "Unique identifier of the trade to cancel", required = true)
             @PathVariable Long id) {
 

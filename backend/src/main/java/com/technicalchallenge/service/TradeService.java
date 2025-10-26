@@ -181,11 +181,19 @@ public class TradeService {
         return validationResult;
     }
 
-    public boolean validateUserPrivileges(Long userId, String operation) {
+    public boolean validateUserPrivileges(String userId, String operation) {
         logger.info("Validating privileges for user: {} | operation: {}", userId, operation);
 
+        // Parse the user ID from a string to a Long
+        Long userIdLong;
+        try {
+            userIdLong = Long.parseLong(userId);
+        } catch (RuntimeException e) {
+            logger.warn("Invalid userId format: {}", userId);
+            return false;
+        }
         // Check if the user exists
-        Optional<ApplicationUser> userOptional = applicationUserRepository.findById(userId);
+        Optional<ApplicationUser> userOptional = applicationUserRepository.findById(userIdLong);
         if (userOptional.isEmpty()) {
             logger.warn("User not found: {}", userId);
             return false;
