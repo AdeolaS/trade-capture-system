@@ -57,7 +57,6 @@ public class TradeDashboardService {
         TradeSummaryDTO tradeSummaryDTO = tradeSummaryMapper.toDto(tradeSummary);
 
         return tradeSummaryDTO;
-
     }
 
     private TradeSummary buildTradeSummary(Long userID) {
@@ -144,6 +143,25 @@ public class TradeDashboardService {
                     Collectors.reducing(BigDecimal.ZERO, leg -> leg.getNotional(), BigDecimal::add)
             ));
         tradeSummary.setTotalNotionalByCurrency(totalNotionalByCurrency);
+
+        // Calculate risk exposure
+        Map<String, BigDecimal> riskExposure = listOfUsersTrades.stream()
+            .filter(trade -> trade.getBook() != null)
+            .collect(Collectors.groupingBy(
+                trade -> trade.getBook().getBookName().toUpperCase(),
+                Collectors.mapping(
+                    trade -> trade.getTradeLegs().stream()
+                        .filter(Objects::nonNull)
+                        .map(leg -> {
+                            BigDecimal notional = leg.getNotional() == null ? BigDecimal.ZERO : leg.getNotional();
+                            String payRec = leg.getPayReceiveFlag() != null ? leg.getPayReceiveFlag().getPayRec() : "PAY";
+                            return payRec.equalsIgnoreCase("RECEIVE") ? notional : notional.negate();
+                        })
+                        .reduce(BigDecimal.ZERO, BigDecimal::add),
+                    Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
+                )
+            ));
+        tradeSummary.setRiskExposure(riskExposure);
 
         return tradeSummary;
     }
