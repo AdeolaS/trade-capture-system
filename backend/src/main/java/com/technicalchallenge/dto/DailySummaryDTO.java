@@ -1,6 +1,10 @@
 package com.technicalchallenge.dto;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Map;
+
+import com.technicalchallenge.model.BookActivitySummary;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -12,13 +16,13 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class DailySummaryDTO {
+    private LocalDate summaryDate;
     // Today's trade count
     private int todaysTradeCount;
     // Today's notional
-    private double todaysNotional;
+    private BigDecimal todaysNotional;
     
     // Book-level activity summaries
-    private Map<String, Object> bookActivitySummaries;
-
-    //private int dayOverDayChange;??
+    private int bookLevelTradeCount;
+    private BigDecimal bookLevelNotional;
 }

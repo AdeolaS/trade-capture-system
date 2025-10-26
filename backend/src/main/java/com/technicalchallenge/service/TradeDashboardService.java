@@ -1,6 +1,7 @@
 package com.technicalchallenge.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -10,18 +11,25 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cglib.core.Local;
 import org.springframework.stereotype.Service;
 
+import com.technicalchallenge.dto.DailySummaryDTO;
 import com.technicalchallenge.dto.TradeSummaryDTO;
+import com.technicalchallenge.mapper.DailySummaryMapper;
 import com.technicalchallenge.mapper.TradeSummaryMapper;
+import com.technicalchallenge.model.BookActivitySummary;
 import com.technicalchallenge.model.Counterparty;
+import com.technicalchallenge.model.DailySummary;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.model.TradeStatus;
 import com.technicalchallenge.model.TradeSummary;
 import com.technicalchallenge.model.TradeType;
 import com.technicalchallenge.repository.CounterpartyRepository;
+import com.technicalchallenge.repository.DailySummaryRepository;
 import com.technicalchallenge.repository.TradeRepository;
 import com.technicalchallenge.repository.TradeStatusRepository;
+import com.technicalchallenge.repository.TradeSummaryRepository;
 import com.technicalchallenge.repository.TradeTypeRepository;
 
 @Service
@@ -40,6 +48,12 @@ public class TradeDashboardService {
     @Autowired
     private CounterpartyRepository counterpartyRepository;
 
+    @Autowired
+    private TradeSummaryRepository tradeSummaryRepository;
+
+    @Autowired
+    private DailySummaryRepository dailySummaryRepository;
+
     public List<Trade> getPersonalTrades(Long traderLoginId) {
         logger.info("Retrieving of user's trades");
         return tradeRepository.findByTraderUser_Id(traderLoginId);
@@ -52,6 +66,7 @@ public class TradeDashboardService {
 
     public TradeSummaryDTO getTradeSummaryForUser(Long userId) {
 
+        logger.info("Retrieving trade summary");
         TradeSummary tradeSummary = buildTradeSummary(userId);
         TradeSummaryMapper tradeSummaryMapper = new TradeSummaryMapper();
         TradeSummaryDTO tradeSummaryDTO = tradeSummaryMapper.toDto(tradeSummary);
@@ -59,8 +74,19 @@ public class TradeDashboardService {
         return tradeSummaryDTO;
     }
 
+    public DailySummaryDTO getDailySummaryForUser(Long userId) {
+
+        logger.info("Retrieving trade summary");
+        DailySummary dailySummary = buildDailySummary(userId);
+        DailySummaryMapper dailySummaryMapper = new DailySummaryMapper();
+        DailySummaryDTO dailySummaryDTO = dailySummaryMapper.toDto(dailySummary);
+
+        return dailySummaryDTO;
+    }
+
     private TradeSummary buildTradeSummary(Long userID) {
 
+        logger.info("Building Trade Summary");
         List<Trade> listOfUsersTrades = getPersonalTrades(userID);
 
         TradeSummary tradeSummary = new TradeSummary();
@@ -69,6 +95,7 @@ public class TradeDashboardService {
 
         // If the user has no trades, return an empy trade summary
         if (listOfUsersTrades == null || listOfUsersTrades.isEmpty()) {
+            logger.info("User has no trades. Returning Empty Trade Summary");
             return tradeSummary;
         }
         // === Count trades by status (case-insensitive) ===
@@ -163,6 +190,52 @@ public class TradeDashboardService {
             ));
         tradeSummary.setRiskExposure(riskExposure);
 
+        tradeSummaryRepository.save(tradeSummary);
         return tradeSummary;
+    }
+
+    private DailySummary buildDailySummary(Long userId) {
+        logger.info("Building Daily Summary");
+
+        DailySummary dailySummary = new DailySummary();
+        dailySummary.setSummaryDate(LocalDate.now());
+
+        List<Trade> listOfUsersTrades = tradeRepository.findByTraderUser_Id(userId);
+        int tradeCount = listOfUsersTrades.size();
+        dailySummary.setTodaysTradeCount(tradeCount);
+
+        // Total notional (sum across all legs)
+        BigDecimal totalNotional = listOfUsersTrades.stream()
+                .flatMap(trade -> trade.getTradeLegs().stream())
+                .filter(Objects::nonNull)
+                .map(leg -> leg.getNotional() == null ? BigDecimal.ZERO : leg.getNotional())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        dailySummary.setTodaysNotional(totalNotional);
+
+        // // === Book-level summary ===
+        // Map<String, BookActivitySummary> bookSummaries = listOfUsersTrades.stream()
+        //         .filter(trade -> trade.getBook() != null)
+        //         .collect(Collectors.groupingBy(
+        //                 trade -> trade.getBook().getBookName(),
+        //                 Collectors.collectingAndThen(
+        //                         Collectors.toList(),
+        //                         tradesInBook -> {
+        //                             int count = tradesInBook.size();
+        //                             BigDecimal bookNotional = tradesInBook.stream()
+        //                                     .flatMap(t -> t.getTradeLegs().stream())
+        //                                     .filter(Objects::nonNull)
+        //                                     .map(leg -> leg.getNotional() == null ? BigDecimal.ZERO : leg.getNotional())
+        //                                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        //                             BookActivitySummary summary = new BookActivitySummary();
+        //                             summary.setTradeCount(count);
+        //                             summary.setTotalNotional(bookNotional);
+        //                         }
+        //                 )
+        //         )); 
+        dailySummary.setBookActivitySummary(new BookActivitySummary());
+
+        dailySummaryRepository.save(dailySummary);
+        return dailySummary;
     }
 }
