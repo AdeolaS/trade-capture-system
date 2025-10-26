@@ -1,5 +1,6 @@
 package com.technicalchallenge.service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -13,10 +14,15 @@ import org.springframework.stereotype.Service;
 
 import com.technicalchallenge.dto.TradeSummaryDTO;
 import com.technicalchallenge.mapper.TradeSummaryMapper;
+import com.technicalchallenge.model.Counterparty;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.model.TradeStatus;
 import com.technicalchallenge.model.TradeSummary;
+import com.technicalchallenge.model.TradeType;
+import com.technicalchallenge.repository.CounterpartyRepository;
 import com.technicalchallenge.repository.TradeRepository;
+import com.technicalchallenge.repository.TradeStatusRepository;
+import com.technicalchallenge.repository.TradeTypeRepository;
 
 @Service
 public class TradeDashboardService {
@@ -24,6 +30,15 @@ public class TradeDashboardService {
 
     @Autowired
     private TradeRepository tradeRepository;
+
+    @Autowired
+    private TradeStatusRepository tradeStatusRepository;
+
+    @Autowired
+    private TradeTypeRepository tradeTypeRepository;
+
+    @Autowired
+    private CounterpartyRepository counterpartyRepository;
 
     public List<Trade> getPersonalTrades(Long traderLoginId) {
         logger.info("Retrieving of user's trades");
@@ -57,21 +72,78 @@ public class TradeDashboardService {
         if (listOfUsersTrades == null || listOfUsersTrades.isEmpty()) {
             return tradeSummary;
         }
-        // Count trades by status (case-insensitive)
+        // === Count trades by status (case-insensitive) ===
+        // Convert trade objects into a stream
         Map<String, Long> tradeCountByStatus = listOfUsersTrades.stream()
+                // Extract TradeStatus Object from each Trade object
                 .map(Trade::getTradeStatus)
+                // Filters out any objects that are null
                 .filter(Objects::nonNull)
+                // Extraacts the TradeStatus string from the TradeStatus Object
                 .map(TradeStatus::getTradeStatus)
+                .filter(Objects::nonNull)
+                // Normalise all strings to uppper case for consistency
+                .map(String::toUpperCase)
+                // Groups statuses by name and counts the occurences of each one
+                .collect(Collectors.groupingBy(s -> s, Collectors.counting()));
+
+        List<TradeStatus> allStatuses = tradeStatusRepository.findAll();
+
+        for (TradeStatus status : allStatuses) {
+            String statusName = status.getTradeStatus().toUpperCase();
+            // Adds any statuses present in the repo that weren't counted. Gives them count of 0
+            tradeCountByStatus.putIfAbsent(statusName, 0L);
+        }
+        tradeSummary.setTradeCountByStatus(tradeCountByStatus);
+
+        // === Count trades by Trade Type (case-insensitive) ===
+        // Convert trade objects into a stream
+        Map<String, Long> tradeCountByTradeType = listOfUsersTrades.stream()
+                .map(Trade::getTradeType)
+                .filter(Objects::nonNull)
+                .map(TradeType::getTradeType)
                 .filter(Objects::nonNull)
                 .map(String::toUpperCase)
                 .collect(Collectors.groupingBy(s -> s, Collectors.counting()));
-
-        // Ensure all expected statuses exist (even with 0)
-        for (String expected : List.of("NEW", "AMENDED", "TERMINATED", "CANCELLED", "LIVE", "DEAD")) {
-            tradeCountByStatus.putIfAbsent(expected, 0L);
+        
+        List<TradeType> allTypes = tradeTypeRepository.findAll();
+        
+        for (TradeType type : allTypes) {
+            String typeName = type.getTradeType().toUpperCase();
+            // Adds any statuses present in the repo that weren't counted. Gives them count of 0
+            tradeCountByTradeType.putIfAbsent(typeName, 0L);
         }
+        tradeSummary.setTradeCountByTradeType(tradeCountByTradeType);
 
-        tradeSummary.setTradeCountByStatus(tradeCountByStatus);
+        // === Count trades by Trade Type (case-insensitive) ===
+        // Convert trade objects into a stream
+        Map<String, Long> tradeCountByCounterparty = listOfUsersTrades.stream()
+                .map(Trade::getCounterparty)
+                .filter(Objects::nonNull)
+                .map(Counterparty::getName)
+                .filter(Objects::nonNull)
+                .map(String::toUpperCase)
+                .collect(Collectors.groupingBy(s -> s, Collectors.counting()));
+        
+        List<Counterparty> allCounterparties = counterpartyRepository.findAll();
+        
+        for (Counterparty counterparty : allCounterparties) {
+            String counterpartyName = counterparty.getName().toUpperCase();
+            // Adds any statuses present in the repo that weren't counted. Gives them count of 0
+            tradeCountByCounterparty.putIfAbsent(counterpartyName, 0L);
+        }
+        tradeSummary.setTradeCountByCounterparty(tradeCountByCounterparty);
+
+        Map<String, BigDecimal> totalNotionalByCurrency = listOfUsersTrades.stream()
+                // Get all non-null tradelegs
+                .flatMap(trade -> trade.getTradeLegs().stream())
+                .filter(Objects::nonNull)
+                .filter(leg -> leg.getCurrency() != null && leg.getNotional() != null)
+                .collect(Collectors.groupingBy(
+                    leg -> leg.getCurrency().getCurrency().toUpperCase(),
+                    Collectors.reducing(BigDecimal.ZERO, leg -> leg.getNotional(), BigDecimal::add)
+            ));
+        tradeSummary.setTotalNotionalByCurrency(totalNotionalByCurrency);
 
         return tradeSummary;
     }

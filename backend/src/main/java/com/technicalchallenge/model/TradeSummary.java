@@ -63,7 +63,7 @@ public class TradeSummary {
                     joinColumns = @JoinColumn(name = "summary_id"))
     @MapKeyColumn(name = "currency")
     @Column(name = "total_notional")
-    private Map<String, Double> totalNotionalByCurrency;
+    private Map<String, BigDecimal> totalNotionalByCurrency;
 
     // Breakdown by trade type
     @ElementCollection

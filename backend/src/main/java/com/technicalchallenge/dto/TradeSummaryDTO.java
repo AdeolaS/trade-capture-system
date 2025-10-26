@@ -19,12 +19,12 @@ public class TradeSummaryDTO {
     private Map<String, Long> tradeCountByStatus;
 
     // Total notional amounts by currency e.g. {"USD": 5_000_000, "EUR": 3_200_000}
-    private Map<String, Double> totalNotionalByCurrency;
+    private Map<String, BigDecimal> totalNotionalByCurrency;
 
     // Breakdown by trade type e.g. {"IRS": 6, "FXSWAP": 4}
     private Map<String, Long> tradeCountByTradeType;
 
-    // Breakdown by  counterparty e.g., {"Barclays": 3, "JPM": 7}
+    // Breakdown by  counterparty e.g., {"BigBank": 3, "MegaFund": 7}
     private Map<String, Long> tradeCountByCounterparty;
 
     // Risk exposure summaries e.g. {"BOOK_A": 2_000_000, "BOOK_B": 1_500_000}
