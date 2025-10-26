@@ -171,7 +171,7 @@ public class TradeService {
         }
 
         if (tradeDTO.getTradeMaturityDate() != null) {
-            if (tradeDTO.getTradeMaturityDate().isBefore(tradeDTO.getTradeStartDate()) || tradeDTO.getTradeMaturityDate().isBefore(tradeDTO.getTradeDate())) {
+            if (!tradeDTO.getTradeMaturityDate().isAfter(tradeDTO.getTradeStartDate()) || tradeDTO.getTradeMaturityDate().isBefore(tradeDTO.getTradeDate())) {
                 validationResult.addError("tradeMaturityDate", "Maturity date cannot be before start date or trade date", "ERROR");
             }
         } else {
@@ -226,7 +226,7 @@ public class TradeService {
     public ValidationResult validateTradeLegConsistency(List<TradeLegDTO> legs) {
 
         ValidationResult validationResult = new ValidationResult();
-
+        // === Basic structure validation ===
         if (legs == null || legs.size() != 2) {
             validationResult.addError("tradeLegs", "Trade must have exactly two legs", "ERROR");
             return validationResult;
@@ -234,14 +234,7 @@ public class TradeService {
         
         TradeLegDTO leg1 = legs.get(0);
         TradeLegDTO leg2 = legs.get(1);
-
-        // if (leg1.getCalculationPeriodSchedule() != null && leg2.getCalculationPeriodSchedule() != null) {
-        //     // Making the assumption that not having the same schedule means differing maturity dates
-        //     if (!leg1.getCalculationPeriodSchedule().equals(leg2.getCalculationPeriodSchedule())) {
-        //         validationResult.addError("maturityDate", "Both legs must have identical maturity dates", "ERROR");
-        //     }
-        // }
-
+        // === Pay/Receive consistency ===
         if (leg1.getPayReceiveFlag() != null && leg2.getPayReceiveFlag() != null) {
             if (leg1.getPayReceiveFlag().equalsIgnoreCase(leg2.getPayReceiveFlag())) {
                 validationResult.addError("payReceiveFlag",
@@ -250,22 +243,69 @@ public class TradeService {
         } else {
             validationResult.addError("payReceiveFlag", "Both legs must specify a pay/receive flag", "ERROR");
         }
-
+        // === Iterate and validate each leg ===
+        int legIndex = 1;
         for (TradeLegDTO leg : legs) {
-            if (leg.getLegType().equalsIgnoreCase("Floating")) {
-                if (leg.getIndexId() == null && (leg.getIndexName() == null || leg.getIndexName().isBlank())) {
-                    validationResult.addError("index", "Floating legs must have an index specified", "ERROR");
+            String errorPrefix = "leg[" + legIndex + "]";
+
+            // === Leg Type ===
+            if (leg.getLegType() == null || leg.getLegType().isBlank()) {
+                validationResult.addError(errorPrefix + ".legType", "Leg type not set", "ERROR");
+            }
+
+            // === Pay/Receive ===
+            if (leg.getPayReceiveFlag() == null || leg.getPayReceiveFlag().isBlank()) {
+                validationResult.addError(errorPrefix + ".payReceiveFlag", "Pay/Receive flag not set", "ERROR");
+            }
+
+            // === Currency ===
+            if (leg.getCurrencyId() == null && (leg.getCurrency() == null || leg.getCurrency().isBlank())) {
+                validationResult.addError(errorPrefix + ".currency", "Currency not set", "ERROR");
+            }
+
+            // === Schedule ===
+            if (leg.getScheduleId() == null && (leg.getCalculationPeriodSchedule() == null || leg.getCalculationPeriodSchedule().isBlank())) {
+                validationResult.addError(errorPrefix + ".schedule", "Schedule not set", "ERROR");
+            }
+
+            // === Business Day Convention ===
+            if (leg.getPaymentBdcId() == null
+                    && (leg.getPaymentBusinessDayConvention() == null || leg.getPaymentBusinessDayConvention().isBlank())) {
+                validationResult.addError(errorPrefix + ".businessDayConvention", "Payment Business day convention not set", "ERROR");
+            }
+
+            if (leg.getFixingBdcId() == null
+                    && (leg.getFixingBusinessDayConvention() == null || leg.getFixingBusinessDayConvention().isBlank())) {
+                validationResult.addError(errorPrefix + ".businessDayConvention", "Fixing Business day convention not set", "ERROR");
+            }
+
+            // === Holiday Calendar ===
+            if (leg.getHolidayCalendarId() == null && (leg.getHolidayCalendar() == null || leg.getHolidayCalendar().isBlank())) {
+                validationResult.addError(errorPrefix + ".holidayCalendar", "Holiday calendar not set", "ERROR");
+            }
+
+            // === Fixed Leg: Rate check ===
+            if (leg.getLegType() != null && leg.getLegType().equalsIgnoreCase("Fixed")) {
+                if (leg.getRate() == null) {
+                    validationResult.addError(errorPrefix + ".rate", "Fixed leg must have a rate specified", "ERROR");
+                } else if (leg.getRate() <= 0.0) {
+                    validationResult.addError(errorPrefix + ".rate", "Fixed leg must have a rate greater than zero", "ERROR");
                 }
             }
 
-            if (leg.getLegType().equalsIgnoreCase("Fixed")) {
-                if (leg.getRate() == null) {
-                    validationResult.addError("rate", "Fixed leg must have a rate specified", "ERROR");
-                }
-                if (leg.getRate() <= 0.0) {
-                    validationResult.addError("rate", "Fixed leg must have a rate greater than zero", "ERROR");
+            // === Floating Leg: Index check ===
+            if (leg.getLegType() != null && leg.getLegType().equalsIgnoreCase("Floating")) {
+                if (leg.getIndexId() == null && (leg.getIndexName() == null || leg.getIndexName().isBlank())) {
+                    validationResult.addError(errorPrefix + ".index", "Floating legs must have an index specified", "ERROR");
                 }
             }
+
+            // === Notional check ===
+            if (leg.getNotional() == null || leg.getNotional().compareTo(BigDecimal.ZERO) <= 0) {
+                validationResult.addError(errorPrefix + ".notional", "Leg must have a positive notional", "ERROR");
+            }
+
+            legIndex++;
         }
         return validationResult;
     }
@@ -274,14 +314,30 @@ public class TradeService {
 
         ValidationResult validationResult = new ValidationResult();
 
+        // === Book validation ===
         if (trade.getBook() == null) {
             validationResult.addError("book", "Book not found or not set", "ERROR");
         } else {
             if (!trade.getBook().isActive()) {
                 validationResult.addError("book", "Book must be active", "ERROR");
             }
+            // Validate cost center, subdesk, and desk hierarchy
+            CostCenter costCenter = trade.getBook().getCostCenter();
+            if (costCenter == null) {
+                validationResult.addError("costCenter", "Book has no associated cost center", "ERROR");
+            } else {
+                SubDesk subDesk = costCenter.getSubDesk();
+                if (subDesk == null) {
+                    validationResult.addError("subDesk", "Cost center has no associated subdesk", "ERROR");
+                } else {
+                    Desk desk = subDesk.getDesk();
+                    if (desk == null) {
+                        validationResult.addError("desk", "Subdesk has no associated desk", "ERROR");
+                    }
+                }
+            }
         }
-        
+        // === Counterparty validation ===
         if (trade.getCounterparty() == null) {
             validationResult.addError("counterparty", "Counterparty not found or not set", "ERROR");
         } else {
@@ -289,7 +345,7 @@ public class TradeService {
                 validationResult.addError("counterparty", "Counterparty must be active", "ERROR");
             }
         }
-        
+        // === Trader user validation ===
         if (trade.getTraderUser() == null) {
             validationResult.addError("traderUser", "Trader User not found or not set", "ERROR");
         } else {
@@ -297,11 +353,18 @@ public class TradeService {
                 validationResult.addError("traderUser", "Trader User must be active", "ERROR");
             }
         }
-        
+        // === Trade Status validation ===
         if (trade.getTradeStatus() == null) {
             validationResult.addError("tradeStatus", "Trade status not found or not set", "ERROR");
         }
-
+        // === Trade Type validation ===
+        if (trade.getTradeType() == null) {
+            validationResult.addError("tradeType", "Trade type not found or not set", "ERROR");
+        }
+        // === Trade SubType validation ===
+        if (trade.getTradeSubType() == null) {
+            validationResult.addError("tradeSubType", "Trade sub-type not found or not set", "ERROR");
+        }
         return validationResult;
     }
 
