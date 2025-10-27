@@ -120,6 +120,70 @@ public class TradeControllerTest {
     }
 
     @Test
+    void testSearchTrades_Success() throws Exception {
+        // Given
+        List<Trade> trades = List.of(trade);
+
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
+        when(tradeService.searchTrades(
+                any(), any(), any(), any(), any(), any()))
+                .thenReturn(trades);
+
+        // When/Then
+        mockMvc.perform(get("/api/trades/search")
+                        .param("userId", userId)
+                        .param("earliestTradeDate", LocalDate.now().minusDays(1).toString())
+                        .param("latestTradeDate", LocalDate.now().plusDays(1).toString())
+                        .param("tradeStatusId", "1")
+                        .param("traderId", "2")
+                        .param("bookId", "3")
+                        .param("counterpartyId", "4")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].tradeId", is(1001)))
+                .andExpect(jsonPath("$[0].bookName", is("TestBook")))
+                .andExpect(jsonPath("$[0].counterpartyName", is("TestCounterparty")));
+
+        verify(tradeService).validateUserPrivileges(eq(userId), eq("VIEW"));
+        verify(tradeService).searchTrades(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void testSearchTrades_Forbidden() throws Exception {
+        // Given
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(false);
+
+        // When/Then
+        mockMvc.perform(get("/api/trades/search")
+                        .param("userId", userId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden())
+                .andExpect(content().string("User " + userId + " is not authorized to VIEW trades."));
+
+        verify(tradeService).validateUserPrivileges(eq(userId), eq("VIEW"));
+    }
+
+    @Test
+    void testSearchTrades_BadRequest() throws Exception {
+        // Given
+        when(tradeService.validateUserPrivileges(eq(userId), eq("VIEW"))).thenReturn(true);
+        when(tradeService.searchTrades(
+                any(), any(), any(), any(), any(), any()))
+                .thenThrow(new RuntimeException("Bad Request"));
+
+        // When/Then
+        mockMvc.perform(get("/api/trades/search")
+                        .param("userId", userId)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string("Error fetching trades: Bad Request"));
+
+        verify(tradeService).validateUserPrivileges(eq(userId), eq("VIEW"));
+        verify(tradeService).searchTrades(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
     void testGetTradesWithRSQL_Success() throws Exception {
 
         // Given

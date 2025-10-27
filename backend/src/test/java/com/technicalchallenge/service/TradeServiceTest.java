@@ -44,6 +44,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
@@ -404,6 +408,87 @@ class TradeServiceTest {
         assertDoesNotThrow(() ->
                 tradeService.validateSearchParameters(earliest, latest, 1L, 2L, 3L, 4L)
         );
+    }
+    @Test
+    void testPaginateTrades_Success() {
+        // Given
+        int pageNum = 0;
+        int pageSize = 2;
+        Pageable pageable = PageRequest.of(pageNum, pageSize);
+        Page<Trade> page = new PageImpl<>(List.of(trade));
+
+        when(tradeRepository.findAll(pageable)).thenReturn(page);
+
+        // When
+        Page<Trade> result = tradeService.paginateTrades(pageNum, pageSize);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(1, result.getContent().size());
+        assertEquals(100001L, result.getContent().get(0).getTradeId());
+        verify(tradeRepository).findAll(pageable);
+    }
+
+    @Test
+    void testPaginateTrades_InvalidPageNum() {
+        // Given
+        int invalidPageNum = -1;
+        int pageSize = 2;
+
+        // When / Then
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            tradeService.paginateTrades(invalidPageNum, pageSize);
+        });
+
+        assertTrue(exception.getMessage().contains("Requested Page number must be non-negative"));
+        verifyNoInteractions(tradeRepository);
+    }
+
+    @Test
+    void testPaginateTrades_InvalidPageSize() {
+        // Given
+        int pageNum = 0;
+        int invalidPageSize = 0;
+
+        // When / Then
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            tradeService.paginateTrades(pageNum, invalidPageSize);
+        });
+
+        assertTrue(exception.getMessage().contains("Page size must be more than zero"));
+        verifyNoInteractions(tradeRepository);
+    }
+
+    @Test
+    void testPaginateTrades_InvalidPageNumAndSize() {
+        // Given
+        int invalidPageNum = -1;
+        int invalidPageSize = 0;
+
+        // When / Then
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            tradeService.paginateTrades(invalidPageNum, invalidPageSize);
+        });
+
+        assertTrue(exception.getMessage().contains("Requested Page number must be non-negative"));
+        assertTrue(exception.getMessage().contains("Page size must be more than zero"));
+        verifyNoInteractions(tradeRepository);
+    }
+
+    @Test
+    void testValidatePaginationParams_ValidParams() {
+        // Should not throw any exception
+        assertDoesNotThrow(() -> tradeService.validatePaginationParams(0, 1));
+    }
+
+    @Test
+    void testValidatePaginationParams_InvalidParams() {
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> 
+            tradeService.validatePaginationParams(-1, 0)
+        );
+
+        assertTrue(exception.getMessage().contains("Requested Page number must be non-negative"));
+        assertTrue(exception.getMessage().contains("Page size must be more than zero"));
     }
 
     @Test

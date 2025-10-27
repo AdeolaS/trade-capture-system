@@ -76,17 +76,17 @@ public class TradeService {
         "SUPERUSER",    List.of("CREATE", "AMEND", "TERMINATE", "CANCEL", "VIEW")
     );
 
-        public List<Trade> getTradesWithRSQL(String query) {
-            logger.info("Retrieving trades");
-            
-            // Parse RQSL
-            Node rootNode = new RSQLParser().parse(query);
+    public List<Trade> getTradesWithRSQL(String query) {
+        logger.info("Retrieving trades");
+        
+        // Parse RQSL
+        Node rootNode = new RSQLParser().parse(query);
 
-            //Build JPA specification
-            Specification<Trade> spec = rootNode.accept(new CustomRsqlVisitor<Trade>());
+        //Build JPA specification
+        Specification<Trade> spec = rootNode.accept(new CustomRsqlVisitor<Trade>());
 
-            return tradeRepository.findAll(spec);
-        }
+        return tradeRepository.findAll(spec);
+    }
 
     public List<Trade> searchTrades(LocalDate earliestTradeDate, LocalDate latestTradeDate, Long tradeStatusId, Long traderId, Long bookId, Long counterpartyId) {
         logger.info("Retrieving trades");
