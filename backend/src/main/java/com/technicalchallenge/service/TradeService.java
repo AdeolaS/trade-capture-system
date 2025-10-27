@@ -184,16 +184,7 @@ public class TradeService {
     public boolean validateUserPrivileges(String userId, String operation) {
         logger.info("Validating privileges for user: {} | operation: {}", userId, operation);
 
-        // Parse the user ID from a string to a Long
-        Long userIdLong;
-        try {
-            userIdLong = Long.parseLong(userId);
-        } catch (RuntimeException e) {
-            logger.warn("Invalid userId format: {}", userId);
-            return false;
-        }
-        // Check if the user exists
-        Optional<ApplicationUser> userOptional = applicationUserRepository.findById(userIdLong);
+        Optional<ApplicationUser> userOptional = applicationUserRepository.findByLoginId(userId);
         if (userOptional.isEmpty()) {
             logger.warn("User not found: {}", userId);
             return false;
@@ -214,6 +205,47 @@ public class TradeService {
 
         // Checks input operation is in the user's list of allowed operations
         boolean isAllowed = allowedOperations.contains(operation.toUpperCase());
+
+        if (!isAllowed) {
+            logger.warn("Unauthorized: '{}' with role '{}' cannot perform '{}'", userId, userType, operation);
+        } else {
+            logger.info("User '{}' authorized for '{}'", userId, operation);
+        }
+        return isAllowed;
+    }
+
+    public boolean validateUserPrivileges(String userId, String operation, TradeDTO tradeDTO) {
+        logger.info("Validating privileges for user: {} | operation: {}", userId, operation);
+
+        // Find the user's ID using their login username
+        Optional<ApplicationUser> userOptional = applicationUserRepository.findByLoginId(userId);
+        if (userOptional.isEmpty()) {
+            logger.warn("User not found: {}", userId);
+            return false;
+        }
+        ApplicationUser user = userOptional.get();
+
+        // Check if the user is active
+        if (!user.isActive()) {
+            logger.warn("User '{}' is inactive", userId);
+            return false;
+        }
+
+        // Get user type e.g. TRADER_SALES, SUPPORT, ADMIN, MO, SUPERUSER
+        String userType = user.getUserProfile().getUserType();
+
+        // If the usertype exists, returns a list of allowed operations. Else returns an empty list
+        List<String> allowedOperations = rolePermissions.getOrDefault(userType.toUpperCase(), List.of());
+
+        // Checks input operation is in the user's list of allowed operations
+        boolean isAllowed = allowedOperations.contains(operation.toUpperCase());
+
+        if (tradeDTO.getTraderUserId() != user.getId()) {
+            if (userType == "TRADER_SALES") {
+                logger.warn("User '{}' doesn't have permission to {} other user's trades.", userId, operation);
+                return false;
+            }
+        }
 
         if (!isAllowed) {
             logger.warn("Unauthorized: '{}' with role '{}' cannot perform '{}'", userId, userType, operation);
