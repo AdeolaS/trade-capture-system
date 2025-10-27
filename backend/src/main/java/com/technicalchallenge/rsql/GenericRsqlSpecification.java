@@ -91,8 +91,8 @@ public class GenericRsqlSpecification<T> implements Specification<T> {
 
 
     private List<Object> castArguments(final Root<T> root) {
-    Path<?> path = getPath(root, property);
-    Class<?> type = path.getJavaType(); 
+        Path<?> path = getPath(root, property);
+        Class<?> type = path.getJavaType(); 
 
         return arguments.stream().map(arg -> {
             try {

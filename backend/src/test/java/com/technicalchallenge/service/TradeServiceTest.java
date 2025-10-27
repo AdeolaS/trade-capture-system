@@ -42,11 +42,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -121,6 +124,14 @@ class TradeServiceTest {
     private ApplicationUser traderUser;
     private TradeType tradeType;
     private TradeSubType tradeSubType;
+
+    // Extra trade objects for the get tests
+    private Trade trade1;
+    private Trade trade2;
+    
+    // For testing search methods
+    private LocalDate earliest;
+    private LocalDate latest;
 
     @BeforeEach
     void setUp() {
@@ -220,6 +231,17 @@ class TradeServiceTest {
         tradeDTO.setTraderUserId(traderUser.getId());
         tradeDTO.setTradeTypeId(tradeType.getId());
         tradeDTO.setTradeSubTypeId(tradeSubType.getId());
+
+        trade1 = new Trade();
+        trade1.setId(1L);
+        trade1.setTradeId(1001L);
+
+        trade2 = new Trade();
+        trade2.setId(2L);
+        trade2.setTradeId(1002L);
+
+        earliest = LocalDate.of(2024, 1, 1);
+        latest = LocalDate.of(2024, 12, 31);
     }
 
     @Test
@@ -295,6 +317,126 @@ class TradeServiceTest {
 
         // Then
         assertFalse(result.isPresent());
+    }
+
+    @Test
+    void testSearchTrades_Success_WhenParametersAreValid() {
+        // GIVEN
+        when(tradeRepository.searchTradesUsingSearchCriteria(
+                any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(trade));
+
+        when(tradeStatusRepository.existsById(anyLong())).thenReturn(true);
+        when(applicationUserRepository.existsById(anyLong())).thenReturn(true);
+        when(bookRepository.existsById(anyLong())).thenReturn(true);
+        when(counterpartyRepository.existsById(anyLong())).thenReturn(true);
+
+        // WHEN
+        List<Trade> result = tradeService.searchTrades(earliest, latest, 1L, 2L, 3L, 4L);
+
+        // THEN
+        assertEquals(1, result.size());
+        verify(tradeRepository).searchTradesUsingSearchCriteria(earliest, latest, 1L, 2L, 3L, 4L);
+    }
+
+    @Test
+    void testSearchTrades_ThrowsException_WhenValidationFails() {
+        // GIVEN
+        when(tradeStatusRepository.existsById(anyLong())).thenReturn(false);
+
+        // WHEN + THEN
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                tradeService.searchTrades(earliest, latest, 99L, 2L, 3L, 4L)
+        );
+        assertTrue(exception.getMessage().contains("Trade status ID does not exist"));
+        verify(tradeRepository, never()).searchTradesUsingSearchCriteria(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void validateSearchParameters_ShouldPass_WhenAllExist() {
+        when(tradeStatusRepository.existsById(1L)).thenReturn(true);
+        when(applicationUserRepository.existsById(2L)).thenReturn(true);
+        when(bookRepository.existsById(3L)).thenReturn(true);
+        when(counterpartyRepository.existsById(4L)).thenReturn(true);
+
+        assertDoesNotThrow(() ->
+                tradeService.validateSearchParameters(earliest, latest, 1L, 2L, 3L, 4L)
+        );
+    }
+
+    @Test
+    void validateSearchParameters_ShouldThrow_WhenEarlierDateIsLater() {
+        LocalDate earlier = LocalDate.now();
+        LocalDate later = LocalDate.now().minusDays(20);
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                tradeService.validateSearchParameters(earlier, later, null, null, null, null)
+        );
+
+        assertTrue(exception.getMessage().contains("Earliest date must be before latest date"));
+    }
+
+    @Test
+    void validateSearchParameters_ShouldThrow_WhenIdsDoNotExist() {
+        when(tradeStatusRepository.existsById(1L)).thenReturn(false);
+        when(applicationUserRepository.existsById(2L)).thenReturn(false);
+        when(bookRepository.existsById(3L)).thenReturn(false);
+        when(counterpartyRepository.existsById(4L)).thenReturn(false);
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                tradeService.validateSearchParameters(earliest, latest, 1L, 2L, 3L, 4L)
+        );
+
+        String errorMessage = exception.getMessage();
+        assertTrue(errorMessage.contains("Trade status ID does not exist"));
+        assertTrue(errorMessage.contains("Trader user ID does not exist"));
+        assertTrue(errorMessage.contains("Book ID does not exist"));
+        assertTrue(errorMessage.contains("Counterparty ID does not exist"));
+    }
+
+    @Test
+    void validateSearchParameters_Success_WhenAllParametersValid() {
+        when(tradeStatusRepository.existsById(1L)).thenReturn(true);
+        when(applicationUserRepository.existsById(2L)).thenReturn(true);
+        when(bookRepository.existsById(3L)).thenReturn(true);
+        when(counterpartyRepository.existsById(4L)).thenReturn(true);
+
+        assertDoesNotThrow(() ->
+                tradeService.validateSearchParameters(earliest, latest, 1L, 2L, 3L, 4L)
+        );
+    }
+
+    @Test
+    void testGetTradesWithRSQL_Success() {
+        // Given
+        String query = "tradeStatus==NEW";
+        when(tradeRepository.findAll(any(Specification.class))).thenReturn(List.of(trade1, trade2));
+
+        // When
+        List<Trade> result = tradeService.getTradesWithRSQL(query);
+
+        // Then
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertEquals(1001L, result.get(0).getTradeId());
+        verify(tradeRepository).findAll(any(Specification.class));
+    }
+
+    @Test
+    void testGetTradesWithRSQL_InvalidQueryThrowsException() {
+        // Given deliberately malformed RSQL
+        String invalidQuery = "INVALID QUERY";
+
+        // When + Then
+        //assertThrows(IllegalArgumentException.class, () -> tradeService.getTradesWithRSQL(invalidQuery));
+
+        // When & Then
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            tradeService.getTradesWithRSQL(invalidQuery);
+        });
+
+        // Repository should never be called if parsing fails
+        assertTrue(exception.getMessage().contains("Encountered \" <UNRESERVED_STR> \"QUERY \""));
     }
 
     @Test
