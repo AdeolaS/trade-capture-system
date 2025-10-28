@@ -658,7 +658,296 @@ class TradeServiceTest {
         assertFalse(result.isValid());
         assertEquals(3, result.getValidationErrors().size());
     }
+
+    @Test
+    void testValidateTradeLegConsistency_AllValid() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertTrue(result.isValid(), "Expected trade legs to be valid");
+        assertTrue(result.getValidationErrors().isEmpty(), "No validation errors expected");
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_NullLegsList() {
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(null);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("tradeLegs")
+                        && e.getErrorMessage().contains("exactly two legs")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_WrongNumberOfLegs() {
+        // Given: only one leg
+        List<TradeLegDTO> oneLeg = List.of(tradeDTO.getTradeLegs().get(0));
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(oneLeg);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("tradeLegs")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_SamePayReceiveFlags() {
+        // Given: both legs PAY
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        legs.get(0).setPayReceiveFlag("PAY");
+        legs.get(1).setPayReceiveFlag("PAY");
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("payReceiveFlag")
+                        && e.getErrorMessage().contains("opposite pay/receive")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_MissingPayReceiveFlag() {
+        // Given: one leg missing flag
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        legs.get(0).setPayReceiveFlag(null);
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("payReceiveFlag")
+                        && e.getErrorMessage().contains("specify a pay/receive flag")));
+    }
     
+    @Test
+    void testValidateTradeLegConsistency_FixedLegMissingRate() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        TradeLegDTO fixedLeg = legs.stream()
+                .filter(l -> "Fixed".equalsIgnoreCase(l.getLegType()))
+                .findFirst().orElseThrow();
+        fixedLeg.setRate(0.0);
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().contains(".rate")
+                        && e.getErrorMessage().contains("greater than zero")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_FloatingLegMissingIndex() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        TradeLegDTO floatingLeg = legs.stream()
+                .filter(l -> "Floating".equalsIgnoreCase(l.getLegType()))
+                .findFirst().orElseThrow();
+        floatingLeg.setIndexId(null);
+        floatingLeg.setIndexName(null);
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().contains(".index")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_MissingNotional() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        legs.get(0).setNotional(null);
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().contains(".notional")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_FixedLegNullRate() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        TradeLegDTO fixedLeg = legs.stream()
+                .filter(l -> "Fixed".equalsIgnoreCase(l.getLegType()))
+                .findFirst().orElseThrow();
+        fixedLeg.setRate(null); // null rate
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().contains(".rate")
+                        && e.getErrorMessage().contains("rate specified")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_FixedLegNegativeRate() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        TradeLegDTO fixedLeg = legs.stream()
+                .filter(l -> "Fixed".equalsIgnoreCase(l.getLegType()))
+                .findFirst().orElseThrow();
+        fixedLeg.setRate(-0.01);
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().contains(".rate")
+                        && e.getErrorMessage().contains("greater than zero")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_NotionalZero() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        legs.get(1).setNotional(BigDecimal.ZERO);
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().contains(".notional")
+                        && e.getErrorMessage().contains("positive notional")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_MissingCurrency() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        TradeLegDTO leg = legs.get(0);
+        leg.setCurrencyId(null);
+        leg.setCurrency(null);
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().contains(".currency")
+                        && e.getErrorMessage().contains("Currency not set")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_MissingSchedule() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        TradeLegDTO leg = legs.get(0);
+        leg.setScheduleId(null);
+        leg.setCalculationPeriodSchedule(null);
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().contains(".schedule")
+                        && e.getErrorMessage().contains("Schedule not set")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_MissingBusinessDayConvention() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        TradeLegDTO leg = legs.get(0);
+        leg.setPaymentBdcId(null);
+        leg.setFixingBdcId(null);
+        leg.setPaymentBusinessDayConvention(null);
+        leg.setFixingBusinessDayConvention(null);
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().contains(".businessDayConvention")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_MissingHolidayCalendar() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        TradeLegDTO leg = legs.get(0);
+        leg.setHolidayCalendarId(null);
+        leg.setHolidayCalendar(null);
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().contains(".holidayCalendar")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_MissingLegType() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        legs.get(0).setLegType(null);
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().contains(".legType")
+                        && e.getErrorMessage().contains("Leg type not set")));
+    }
+
+    @Test
+    void testValidateTradeLegConsistency_BlankFields() {
+        // Given
+        List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
+        TradeLegDTO leg = legs.get(0);
+        leg.setLegType(" ");
+        leg.setPayReceiveFlag(" ");
+        leg.setCurrency(" ");
+        leg.setCalculationPeriodSchedule(" ");
+        leg.setPaymentBusinessDayConvention(" ");
+        leg.setFixingBusinessDayConvention(" ");
+        leg.setHolidayCalendar(" ");
+
+        // When
+        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+
+        // Then
+        System.out.println(result);
+        assertFalse(result.isValid(), "Blank fields should trigger validation errors");
+        assertTrue(result.getValidationErrors().size() > 1, "Should contain multiple field-level errors");
+    }
+
     @ParameterizedTest
     // Input values for test. 
     @CsvSource({"0,2,4", "0,4,8", "1,0,24", "2,2,52"})
