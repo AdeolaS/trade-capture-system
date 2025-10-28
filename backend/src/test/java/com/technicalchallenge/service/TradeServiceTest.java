@@ -18,6 +18,7 @@ import com.technicalchallenge.model.TradeLeg;
 import com.technicalchallenge.model.TradeStatus;
 import com.technicalchallenge.model.TradeSubType;
 import com.technicalchallenge.model.TradeType;
+import com.technicalchallenge.model.ValidationResult;
 import com.technicalchallenge.repository.ApplicationUserRepository;
 import com.technicalchallenge.repository.BookRepository;
 import com.technicalchallenge.repository.BusinessDayConventionRepository;
@@ -562,6 +563,102 @@ class TradeServiceTest {
         assertTrue(exception.getMessage().contains("Trade not found"));
     }
 
+    @ParameterizedTest
+    @CsvSource({"0,1,2", "4,7,9", "100,200,300", "250,250,300"})
+    void testValidateTradeBusinessRules_AllValidDates(int addToDate, int addToStart, int addToMaturity) {
+        //Given
+        tradeDTO.setTradeDate(LocalDate.now().plusDays(addToDate));
+        tradeDTO.setTradeStartDate(LocalDate.now().plusDays(addToStart));
+        tradeDTO.setTradeMaturityDate(LocalDate.now().plusDays(addToMaturity));
+        //When
+        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+        //Then
+        assertTrue(result.isValid());
+        assertTrue(result.getValidationErrors().isEmpty());
+    }
+
+    @Test
+    void testValidateTradeBusinessRules_TradeDateNull() {
+        tradeDTO.setTradeDate(null);
+        tradeDTO.setTradeStartDate(LocalDate.now().plusDays(1));
+        tradeDTO.setTradeMaturityDate(LocalDate.now().plusDays(10));
+
+        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("tradeDate") &&
+                               e.getErrorMessage().contains("is required")));
+    }
+
+    @Test
+    void testValidateTradeBusinessRules_StartTradeDateNull() {
+        tradeDTO.setTradeDate(LocalDate.now());
+        tradeDTO.setTradeStartDate(null);
+        tradeDTO.setTradeMaturityDate(LocalDate.now().plusDays(10));
+
+        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("tradeStartDate") &&
+                               e.getErrorMessage().contains("is required")));
+    }
+
+    @Test
+    void testValidateTradeBusinessRules_MaturityTradeDateNull() {
+        tradeDTO.setTradeDate(LocalDate.now());
+        tradeDTO.setTradeStartDate(LocalDate.now().plusDays(1));
+        tradeDTO.setTradeMaturityDate(null);
+
+        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("tradeMaturityDate") &&
+                               e.getErrorMessage().contains("is required")));
+    }
+
+    @Test
+    void testValidateTradeBusinessRules_TradeDateTooOld() {
+        tradeDTO.setTradeDate(LocalDate.now().minusDays(31));
+        tradeDTO.setTradeStartDate(LocalDate.now());
+        tradeDTO.setTradeMaturityDate(LocalDate.now().plusDays(10));
+
+        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("tradeDate") &&
+                               e.getErrorMessage().contains("must not be more than 30 days")));
+    }
+
+    @Test
+    void testValidateTradeBusinessRules_MaturityDateBeforeStartOrTradeDate() {
+        tradeDTO.setTradeDate(LocalDate.now());
+        tradeDTO.setTradeStartDate(LocalDate.now().plusDays(5));
+        tradeDTO.setTradeMaturityDate(LocalDate.now().plusDays(2)); // before start date
+
+        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("tradeMaturityDate") &&
+                               e.getErrorMessage().contains("cannot be before start date or trade date")));
+    }
+
+    @Test
+    void testValidateTradeBusinessRules_AllInvalid() {
+        tradeDTO.setTradeDate(LocalDate.now().minusDays(31));
+        tradeDTO.setTradeStartDate(LocalDate.now().minusDays(32));
+        tradeDTO.setTradeMaturityDate(LocalDate.now().minusDays(33));
+
+        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+
+        assertFalse(result.isValid());
+        assertEquals(3, result.getValidationErrors().size());
+    }
+    
     @ParameterizedTest
     // Input values for test. 
     @CsvSource({"0,2,4", "0,4,8", "1,0,24", "2,2,52"})

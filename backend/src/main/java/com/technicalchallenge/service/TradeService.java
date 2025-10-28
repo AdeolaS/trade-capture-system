@@ -154,24 +154,29 @@ public class TradeService {
 
         ValidationResult validationResult = new ValidationResult();
 
-        if (tradeDTO.getTradeDate() != null) {
-            if (tradeDTO.getTradeDate().isBefore(LocalDate.now().minusDays(30))){
+        LocalDate tradeDate = tradeDTO.getTradeDate();
+        LocalDate startDate = tradeDTO.getTradeStartDate();
+        LocalDate maturityDate = tradeDTO.getTradeMaturityDate();
+
+        if (tradeDate != null) {
+            if (tradeDate.isBefore(LocalDate.now().minusDays(30))){
                 validationResult.addError("tradeDate", "Trade date must not be more than 30 days before today's date", "ERROR");
             }
         } else {
             validationResult.addError("tradeDate", "Trade date is required", "ERROR");
         }
 
-        if (tradeDTO.getTradeStartDate() != null) {
-            if (tradeDTO.getTradeStartDate().isBefore(tradeDTO.getTradeDate())) {
+        if (startDate != null) {
+            if (tradeDate != null && startDate.isBefore(tradeDate)) {
                 validationResult.addError("tradeStartDate", "Start date cannot be before trade date", "ERROR");
             }
         } else {
             validationResult.addError("tradeStartDate", "Trade start date is required", "ERROR");
         }
 
-        if (tradeDTO.getTradeMaturityDate() != null) {
-            if (!tradeDTO.getTradeMaturityDate().isAfter(tradeDTO.getTradeStartDate()) || tradeDTO.getTradeMaturityDate().isBefore(tradeDTO.getTradeDate())) {
+        if (maturityDate != null) {
+            if ((startDate != null && !maturityDate.isAfter(startDate)) ||
+                (tradeDate != null && maturityDate.isBefore(tradeDate))) {
                 validationResult.addError("tradeMaturityDate", "Maturity date cannot be before start date or trade date", "ERROR");
             }
         } else {
