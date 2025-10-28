@@ -138,6 +138,8 @@ class TradeServiceTest {
     private LocalDate earliest;
     private LocalDate latest;
 
+    private ValidationResult result;
+
     @BeforeEach
     void setUp() {
         // Set up test data
@@ -571,7 +573,7 @@ class TradeServiceTest {
         tradeDTO.setTradeStartDate(LocalDate.now().plusDays(addToStart));
         tradeDTO.setTradeMaturityDate(LocalDate.now().plusDays(addToMaturity));
         //When
-        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+        result = tradeService.validateTradeBusinessRules(tradeDTO);
         //Then
         assertTrue(result.isValid());
         assertTrue(result.getValidationErrors().isEmpty());
@@ -583,7 +585,7 @@ class TradeServiceTest {
         tradeDTO.setTradeStartDate(LocalDate.now().plusDays(1));
         tradeDTO.setTradeMaturityDate(LocalDate.now().plusDays(10));
 
-        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+        result = tradeService.validateTradeBusinessRules(tradeDTO);
 
         assertFalse(result.isValid());
         assertTrue(result.getValidationErrors().stream()
@@ -597,7 +599,7 @@ class TradeServiceTest {
         tradeDTO.setTradeStartDate(null);
         tradeDTO.setTradeMaturityDate(LocalDate.now().plusDays(10));
 
-        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+        result = tradeService.validateTradeBusinessRules(tradeDTO);
 
         assertFalse(result.isValid());
         assertTrue(result.getValidationErrors().stream()
@@ -611,7 +613,7 @@ class TradeServiceTest {
         tradeDTO.setTradeStartDate(LocalDate.now().plusDays(1));
         tradeDTO.setTradeMaturityDate(null);
 
-        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+        result = tradeService.validateTradeBusinessRules(tradeDTO);
 
         assertFalse(result.isValid());
         assertTrue(result.getValidationErrors().stream()
@@ -625,7 +627,7 @@ class TradeServiceTest {
         tradeDTO.setTradeStartDate(LocalDate.now());
         tradeDTO.setTradeMaturityDate(LocalDate.now().plusDays(10));
 
-        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+        result = tradeService.validateTradeBusinessRules(tradeDTO);
 
         assertFalse(result.isValid());
         assertTrue(result.getValidationErrors().stream()
@@ -639,7 +641,7 @@ class TradeServiceTest {
         tradeDTO.setTradeStartDate(LocalDate.now().plusDays(5));
         tradeDTO.setTradeMaturityDate(LocalDate.now().plusDays(2)); // before start date
 
-        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+        result = tradeService.validateTradeBusinessRules(tradeDTO);
 
         assertFalse(result.isValid());
         assertTrue(result.getValidationErrors().stream()
@@ -653,7 +655,7 @@ class TradeServiceTest {
         tradeDTO.setTradeStartDate(LocalDate.now().minusDays(32));
         tradeDTO.setTradeMaturityDate(LocalDate.now().minusDays(33));
 
-        ValidationResult result = tradeService.validateTradeBusinessRules(tradeDTO);
+        result = tradeService.validateTradeBusinessRules(tradeDTO);
 
         assertFalse(result.isValid());
         assertEquals(3, result.getValidationErrors().size());
@@ -665,7 +667,7 @@ class TradeServiceTest {
         List<TradeLegDTO> legs = tradeDTO.getTradeLegs();
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertTrue(result.isValid(), "Expected trade legs to be valid");
@@ -675,7 +677,7 @@ class TradeServiceTest {
     @Test
     void testValidateTradeLegConsistency_NullLegsList() {
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(null);
+        result = tradeService.validateTradeLegConsistency(null);
 
         // Then
         assertFalse(result.isValid());
@@ -690,7 +692,7 @@ class TradeServiceTest {
         List<TradeLegDTO> oneLeg = List.of(tradeDTO.getTradeLegs().get(0));
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(oneLeg);
+        result = tradeService.validateTradeLegConsistency(oneLeg);
 
         // Then
         assertFalse(result.isValid());
@@ -706,7 +708,7 @@ class TradeServiceTest {
         legs.get(1).setPayReceiveFlag("PAY");
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -722,7 +724,7 @@ class TradeServiceTest {
         legs.get(0).setPayReceiveFlag(null);
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -741,7 +743,7 @@ class TradeServiceTest {
         fixedLeg.setRate(0.0);
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -761,7 +763,7 @@ class TradeServiceTest {
         floatingLeg.setIndexName(null);
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -776,7 +778,7 @@ class TradeServiceTest {
         legs.get(0).setNotional(null);
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -794,7 +796,7 @@ class TradeServiceTest {
         fixedLeg.setRate(null); // null rate
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -813,7 +815,7 @@ class TradeServiceTest {
         fixedLeg.setRate(-0.01);
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -829,7 +831,7 @@ class TradeServiceTest {
         legs.get(1).setNotional(BigDecimal.ZERO);
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -847,7 +849,7 @@ class TradeServiceTest {
         leg.setCurrency(null);
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -865,7 +867,7 @@ class TradeServiceTest {
         leg.setCalculationPeriodSchedule(null);
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -885,7 +887,7 @@ class TradeServiceTest {
         leg.setFixingBusinessDayConvention(null);
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -902,7 +904,7 @@ class TradeServiceTest {
         leg.setHolidayCalendar(null);
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -917,7 +919,7 @@ class TradeServiceTest {
         legs.get(0).setLegType(null);
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         assertFalse(result.isValid());
@@ -940,12 +942,167 @@ class TradeServiceTest {
         leg.setHolidayCalendar(" ");
 
         // When
-        ValidationResult result = tradeService.validateTradeLegConsistency(legs);
+        result = tradeService.validateTradeLegConsistency(legs);
 
         // Then
         System.out.println(result);
         assertFalse(result.isValid(), "Blank fields should trigger validation errors");
         assertTrue(result.getValidationErrors().size() > 1, "Should contain multiple field-level errors");
+    }
+
+    @Test
+    void testValidateReferenceData_AllValid() {
+        
+        result = tradeService.validateReferenceData(trade);
+
+        assertTrue(result.isValid(), "Expected trade to be valid");
+        assertTrue(result.getValidationErrors().isEmpty(), "Expected no validation errors");
+    }
+
+    @Test
+    void testValidateReferenceData_MissingBook() {
+        trade.setBook(null);
+
+        result = tradeService.validateReferenceData(trade);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().contains("book")
+                        && e.getErrorMessage().contains("Book not found or not set")));
+    }
+
+    @Test
+    void testValidateReferenceData_InactiveBook() {
+        book.setActive(false);
+        trade.setBook(book);
+
+        result = tradeService.validateReferenceData(trade);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("book") &&
+                               e.getErrorMessage().contains("Book must be active")));
+    }
+
+    @Test
+    void testValidateReferenceData_MissingCostCenter() {
+        book.setCostCenter(null);
+        trade.setBook(book);
+
+        result = tradeService.validateReferenceData(trade);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("costCenter") &&
+                               e.getErrorMessage().contains("Book has no associated cost center")));
+    }
+
+    @Test
+    void testValidateReferenceData_MissingSubDesk() {
+        book.getCostCenter().setSubDesk(null);
+
+        result = tradeService.validateReferenceData(trade);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("subDesk") &&
+                               e.getErrorMessage().contains("Cost center has no associated subdesk")));
+    }
+
+    @Test
+    void testValidateReferenceData_MissingDesk() {
+        book.getCostCenter().getSubDesk().setDesk(null);
+
+        result = tradeService.validateReferenceData(trade);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("desk") &&
+                               e.getErrorMessage().contains("Subdesk has no associated desk")));
+    }
+
+    @Test
+    void testValidateReferenceData_InactiveCounterparty() {
+        counterparty.setActive(false);
+
+        result = tradeService.validateReferenceData(trade);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("counterparty") &&
+                               e.getErrorMessage().contains("Counterparty must be active")));
+    }
+
+    @Test
+    void testValidateReferenceData_MissingCounterparty() {
+        trade.setCounterparty(null);
+
+        result = tradeService.validateReferenceData(trade);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("counterparty") &&
+                               e.getErrorMessage().contains("Counterparty not found or not set")));
+    }
+
+    @Test
+    void testValidateReferenceData_InactiveTraderUser() {
+        traderUser.setActive(false);
+
+        result = tradeService.validateReferenceData(trade);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("traderUser") &&
+                               e.getErrorMessage().contains("Trader User must be active")));
+    }
+
+    @Test
+    void testValidateReferenceData_MissingTraderUser() {
+        trade.setTraderUser(null);
+
+        result = tradeService.validateReferenceData(trade);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("traderUser") &&
+                               e.getErrorMessage().contains("Trader User not found or not set")));
+    }
+
+    @Test
+    void testValidateReferenceData_MissingTradeStatus() {
+        trade.setTradeStatus(null);
+
+        result = tradeService.validateReferenceData(trade);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("tradeStatus") &&
+                               e.getErrorMessage().contains("Trade status not found or not set")));
+    }
+
+    @Test
+    void testValidateReferenceData_MissingTradeType() {
+        trade.setTradeType(null);
+
+        result = tradeService.validateReferenceData(trade);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("tradeType") &&
+                               e.getErrorMessage().contains("Trade type not found or not set")));
+    }
+
+    @Test
+    void testValidateReferenceData_MissingTradeSubType() {
+        trade.setTradeSubType(null);
+
+        result = tradeService.validateReferenceData(trade);
+
+        assertFalse(result.isValid());
+        assertTrue(result.getValidationErrors().stream()
+                .anyMatch(e -> e.getFieldName().equals("tradeSubType") &&
+                               e.getErrorMessage().contains("Trade sub-type not found or not set")));
     }
 
     @ParameterizedTest
