@@ -53,7 +53,6 @@ public class TradeDashboardController {
     public ResponseEntity<List<TradeDTO>> getPersonalTrades(@RequestParam Long userId) {
         logger.info("Fetching trades for user");
 
-        // List<TradeDTO> listOfTradeDTOs = tradeDashboardService.getPersonalTrades(userId)
         List<TradeDTO> listOfTradeDTOs = tradeDashboardService.getPersonalTrades(userId)
             .stream()
             .map(tradeMapper::toDto)

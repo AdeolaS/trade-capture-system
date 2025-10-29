@@ -69,7 +69,8 @@ public class TradeService {
 
     // Define permissions
     private static Map<String, List<String>> rolePermissions = Map.of(
-        "TRADER_SALES", List.of("CREATE", "AMEND", "TERMINATE", "CANCEL"),
+        "TRADER",       List.of("CREATE", "AMEND", "TERMINATE", "CANCEL"),
+        "SALES",        List.of("BOOK", "AMEND"),
         "SUPPORT",      List.of("VIEW"),
         "MO",           List.of("AMEND", "VIEW"),
         "ADMIN",        List.of("CREATE", "AMEND", "TERMINATE", "CANCEL", "VIEW"),
@@ -246,7 +247,7 @@ public class TradeService {
         boolean isAllowed = allowedOperations.contains(operation.toUpperCase());
 
         if (tradeDTO.getTraderUserId() != user.getId()) {
-            if (userType == "TRADER_SALES") {
+            if (userType == "TRADER" || userType == "SALES") {
                 logger.warn("User '{}' doesn't have permission to {} other user's trades.", userId, operation);
                 return false;
             }
@@ -939,21 +940,6 @@ public class TradeService {
 
         return BigDecimal.ZERO;
     }
-
-    // private void validateReferenceData(Trade trade) {
-    //     // Validate essential reference data is populated
-    //     if (trade.getBook() == null) {
-    //         throw new RuntimeException("Book not found or not set");
-    //     }
-    //     if (trade.getCounterparty() == null) {
-    //         throw new RuntimeException("Counterparty not found or not set");
-    //     }
-    //     if (trade.getTradeStatus() == null) {
-    //         throw new RuntimeException("Trade status not found or not set");
-    //     }
-
-    //     logger.debug("Reference data validation passed for trade");
-    // }
 
     // NEW METHOD: Generate the next trade ID (sequential)
     private Long generateNextTradeId() {

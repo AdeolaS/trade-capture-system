@@ -15,7 +15,7 @@ INSERT INTO business_day_convention (id, bdc) VALUES (1000, 'Following'), (1001,
 INSERT INTO pay_rec (id, pay_rec) VALUES (1000, 'Pay'), (1001, 'Receive');
 
 -- Users
-INSERT INTO user_profile (id, user_type) VALUES (1000,'TRADER_SALES'), (1001,'SUPPORT'),(1002,'ADMIN'),(1003,'MO'),(1004,'SUPERUSER');
+INSERT INTO user_profile (id, user_type) VALUES (1000,'TRADER'), (1001,'SUPPORT'),(1002,'ADMIN'),(1003,'MO'),(1004,'SUPERUSER'), (1005,'SALES');
 INSERT INTO application_user (id, first_name, last_name, login_id, password, active, user_profile_id, version, last_modified_timestamp) VALUES
   (1000, 'Alice', 'Smith', 'alice', 'password', true, 1002, 1, '2025-06-02T00:00:00'),
   (1001, 'Bob', 'Jones', 'bob', 'password', true, 1001, 1, '2025-06-02T00:00:00'),
