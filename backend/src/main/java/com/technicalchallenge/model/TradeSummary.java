@@ -2,7 +2,7 @@ package com.technicalchallenge.model;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.Map;
 
 import jakarta.persistence.CollectionTable;
@@ -41,7 +41,8 @@ public class TradeSummary {
 
 
     // when this snapshot was taken
-    private LocalDateTime summaryTimeStamp;
+    private LocalDate summaryDateStamp;
+    private LocalTime summaryTimeStamp;
 
 
     // Total number of trades by status

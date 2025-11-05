@@ -16,6 +16,7 @@ public class TradeSummaryMapper {
         TradeSummaryDTO dto = new TradeSummaryDTO();
 
         dto.setSummaryTimeStamp(tradeSummary.getSummaryTimeStamp());
+        dto.setSummaryDateStamp(tradeSummary.getSummaryDateStamp());
         dto.setTradeCountByStatus(tradeSummary.getTradeCountByStatus());
         dto.setTotalNotionalByCurrency(tradeSummary.getTotalNotionalByCurrency());
         dto.setTradeCountByTradeType(tradeSummary.getTradeCountByTradeType());
@@ -37,6 +38,7 @@ public class TradeSummaryMapper {
         tradeSummary.setTraderUser(trader);
 
         tradeSummary.setSummaryTimeStamp(dto.getSummaryTimeStamp());
+        tradeSummary.setSummaryDateStamp(dto.getSummaryDateStamp());
         tradeSummary.setTradeCountByStatus(dto.getTradeCountByStatus());
         tradeSummary.setTotalNotionalByCurrency(dto.getTotalNotionalByCurrency());
         tradeSummary.setTradeCountByTradeType(dto.getTradeCountByTradeType());

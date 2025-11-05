@@ -140,6 +140,9 @@ class TradeServiceTest {
 
     private ValidationResult result;
 
+    private TradeLegDTO leg1;
+    private TradeLegDTO leg2;
+
     @BeforeEach
     void setUp() {
         // Set up test data
@@ -151,7 +154,7 @@ class TradeServiceTest {
         tradeDTO.setTradeMaturityDate(LocalDate.now().plusYears(1).plusDays(2));
 
         // --- Create legs ---
-        TradeLegDTO leg1 = new TradeLegDTO();
+        leg1 = new TradeLegDTO();
         leg1.setNotional(BigDecimal.valueOf(1_000_000));
         leg1.setRate(0.05);
         leg1.setLegType("Floating");
@@ -163,7 +166,7 @@ class TradeServiceTest {
         leg1.setPaymentBdcId(1000L);
         leg1.setFixingBdcId(1000L);
 
-        TradeLegDTO leg2 = new TradeLegDTO();
+        leg2 = new TradeLegDTO();
         leg2.setNotional(BigDecimal.valueOf(1_000_000));
         leg2.setRate(0.01);
         leg2.setLegType("Fixed");
@@ -446,9 +449,6 @@ class TradeServiceTest {
         // Given deliberately malformed RSQL
         String invalidQuery = "INVALID QUERY";
 
-        // When + Then
-        //assertThrows(IllegalArgumentException.class, () -> tradeService.getTradesWithRSQL(invalidQuery));
-
         // When & Then
         RuntimeException exception = assertThrows(RuntimeException.class, () -> {
             tradeService.getTradesWithRSQL(invalidQuery);
@@ -536,4 +536,14 @@ class TradeServiceTest {
         // There are two trade legs and a cashflow is generated for each for evey month
         verify(cashflowRepository, times(invocationsCount)).save(any(Cashflow.class));
     }
+
+    // @Test
+    // void testCalculateCashflowValue() {
+
+        
+    //     tradeLeg.getLegRateType().setType("Fixed");
+
+    //     //When
+    //     tradeService.calculateCashflowValue(tradeLeg, 3);
+    // }
 }

@@ -1,7 +1,8 @@
 package com.technicalchallenge.dto;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.Map;
 
 import lombok.AllArgsConstructor;
@@ -14,7 +15,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TradeSummaryDTO {
-    private LocalDateTime summaryTimeStamp;
+    private LocalDate summaryDateStamp;
+    private LocalTime summaryTimeStamp;
     // Total number of trades by status e.g., {"LIVE": 10, "CANCELLED": 2}
     private Map<String, Long> tradeCountByStatus;
 

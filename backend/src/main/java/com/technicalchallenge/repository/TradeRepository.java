@@ -32,16 +32,10 @@ public interface TradeRepository extends JpaRepository<Trade, Long>, JpaSpecific
         @Param ("counterpartyId") Long counterpartyId
     );
 
-    // @Query("""
-    //     SELECT t FROM Trade t 
-    //     WHERE (t.traderUser.id = :traderUserId)
-    //     AND (t.book.id = :bookId) 
-    //     """)
-    // List<Trade> findByTraderUserIdAndBookId(@Param ("traderUserId") Long traderUserId);
-
     List<Trade> findByTraderUser_IdAndBook_Id(Long bookId, Long traderUserId);
 
     List<Trade> findByTraderUser_Id(Long traderUserId);
+    
 
     // Existing methods
     List<Trade> findByTradeId(Long tradeId);
