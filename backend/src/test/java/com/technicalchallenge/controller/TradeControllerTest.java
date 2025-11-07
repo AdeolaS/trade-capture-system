@@ -520,7 +520,7 @@ public class TradeControllerTest {
         when(tradeService.amendTrade(eq(tradeId), any(TradeDTO.class))).thenReturn(trade);
         when(tradeMapper.toDto(any(Trade.class))).thenReturn(tradeDTO);
         
-        when(tradeService.validateUserPrivileges(eq(userId), eq("AMEND"))).thenReturn(true);
+        when(tradeService.validateUserPrivileges(eq(userId), eq("AMEND"), any(TradeDTO.class))).thenReturn(true);
 
         // When/Then
         mockMvc.perform(put("/api/trades/{id}", tradeId)
@@ -542,7 +542,7 @@ public class TradeControllerTest {
 
         when(tradeService.amendTrade(eq(tradeId), any(TradeDTO.class))).thenReturn(trade);
         when(tradeMapper.toDto(any(Trade.class))).thenReturn(tradeDTO);
-        when(tradeService.validateUserPrivileges(eq(forbiddenId), eq("AMEND"))).thenReturn(false);
+        when(tradeService.validateUserPrivileges(eq(forbiddenId), eq("AMEND"), any(TradeDTO.class))).thenReturn(false);
 
         // When/Then
         mockMvc.perform(put("/api/trades/{id}", tradeId)
@@ -560,7 +560,7 @@ public class TradeControllerTest {
         // Given
         Long pathId = 1001L;
         tradeDTO.setTradeId(2002L); // Different from path ID
-        when(tradeService.validateUserPrivileges(eq(userId), eq("AMEND"))).thenReturn(true);
+        when(tradeService.validateUserPrivileges(eq(userId), eq("AMEND"), any(TradeDTO.class))).thenReturn(true);
 
         // When/Then
         mockMvc.perform(put("/api/trades/{id}", pathId)

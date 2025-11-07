@@ -262,7 +262,7 @@ public class TradeController {
             @Parameter(description = "Updated trade details", required = true)
             @Valid @RequestBody TradeDTO tradeDTO) {
 
-        if (!tradeService.validateUserPrivileges(userId, "AMEND")) {
+        if (!tradeService.validateUserPrivileges(userId, "AMEND", tradeDTO)) {
             return ResponseEntity.status(403).body("User " + userId + " is not authorized to AMEND trades.");
         }
         logger.info("Updating trade with id: {}", id);
