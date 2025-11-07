@@ -23,6 +23,12 @@ public class DailySummaryDTO {
     private BigDecimal todaysNotional;
     
     // Book-level activity summaries
-    private int bookLevelTradeCount;
-    private BigDecimal bookLevelNotional;
+    private Map<String, Long> tradesByBook; // e.g. FX_BOOK: 10, EQUITY_BOOK: 4
+    private Map<String, BigDecimal> notionalByBook; // e.g. FX_BOOK: 5,000,000
+
+    // === Historical comparison ===
+    private BigDecimal previousDayNotional;
+    private int previousDayTradeCount;
+    private BigDecimal notionalChangePercentage;
+    private BigDecimal tradeCountChangePercentage;
 }

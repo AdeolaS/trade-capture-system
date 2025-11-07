@@ -1,6 +1,7 @@
 package com.technicalchallenge.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -40,7 +41,7 @@ import com.technicalchallenge.repository.TradeTypeRepository;
 
 @Service
 public class TradeDashboardService {
-    private static final Logger logger = LoggerFactory.getLogger(TradeService.class);
+    private static final Logger logger = LoggerFactory.getLogger(TradeDashboardService.class);
 
     @Autowired
     private TradeRepository tradeRepository;
@@ -65,9 +66,9 @@ public class TradeDashboardService {
 
     @Autowired
     private DailySummaryRepository dailySummaryRepository;
-
     
     private TradeSummaryMapper tradeSummaryMapper = new TradeSummaryMapper();
+    private DailySummaryMapper dailySummaryMapper = new DailySummaryMapper();
 
     public List<Trade> getPersonalTrades(String traderLoginId) {
         logger.info("Retrieving of user's trades");
@@ -130,7 +131,6 @@ public class TradeDashboardService {
         logger.info("Retrieving trade summary");
 
         TradeSummary tradeSummary = buildTradeSummary(traderLoginId);
-        //TradeSummaryMapper tradeSummaryMapper = new TradeSummaryMapper();
         TradeSummaryDTO tradeSummaryDTO = tradeSummaryMapper.toDto(tradeSummary);
 
         return tradeSummaryDTO;
@@ -270,60 +270,96 @@ public class TradeDashboardService {
         return tradeSummary;
     }
 
-    // public DailySummaryDTO getDailySummaryForUser(Long userId) {
+    public DailySummaryDTO getDailySummaryForUser(String traderLoginId) {
 
-    //     logger.info("Retrieving trade summary");
-    //     DailySummary dailySummary = buildDailySummary(userId);
-    //     DailySummaryMapper dailySummaryMapper = new DailySummaryMapper();
-    //     DailySummaryDTO dailySummaryDTO = dailySummaryMapper.toDto(dailySummary);
+        logger.info("Retrieving trade summary");
+        DailySummary dailySummary = buildDailySummary(traderLoginId);
 
-    //     return dailySummaryDTO;
-    // }
 
-    
+        DailySummaryDTO dailySummaryDTO = dailySummaryMapper.toDto(dailySummary);
 
-    // private DailySummary buildDailySummary(Long userId) {
-    //     logger.info("Building Daily Summary");
+        return dailySummaryDTO;
+    }
 
-    //     DailySummary dailySummary = new DailySummary();
-    //     dailySummary.setSummaryDate(LocalDate.now());
+    private DailySummary buildDailySummary(String userId) {
+        logger.info("Building Daily Summary");
 
-    //     List<Trade> listOfUsersTrades = tradeRepository.findByTraderUser_Id(userId);
-    //     int tradeCount = listOfUsersTrades.size();
-    //     dailySummary.setTodaysTradeCount(tradeCount);
+        DailySummary dailySummary = new DailySummary();
+        dailySummary.setSummaryDate(LocalDate.now());
 
-    //     // Total notional (sum across all legs)
-    //     BigDecimal totalNotional = listOfUsersTrades.stream()
-    //             .flatMap(trade -> trade.getTradeLegs().stream())
-    //             .filter(Objects::nonNull)
-    //             .map(leg -> leg.getNotional() == null ? BigDecimal.ZERO : leg.getNotional())
-    //             .reduce(BigDecimal.ZERO, BigDecimal::add);
-    //     dailySummary.setTodaysNotional(totalNotional);
+        List<Trade> listOfUsersTrades = getPersonalTrades(userId);
+        int tradeCount = listOfUsersTrades.size();
+        dailySummary.setTodaysTradeCount(tradeCount);
 
-    //     // // === Book-level summary ===
-    //     // Map<String, BookActivitySummary> bookSummaries = listOfUsersTrades.stream()
-    //     //         .filter(trade -> trade.getBook() != null)
-    //     //         .collect(Collectors.groupingBy(
-    //     //                 trade -> trade.getBook().getBookName(),
-    //     //                 Collectors.collectingAndThen(
-    //     //                         Collectors.toList(),
-    //     //                         tradesInBook -> {
-    //     //                             int count = tradesInBook.size();
-    //     //                             BigDecimal bookNotional = tradesInBook.stream()
-    //     //                                     .flatMap(t -> t.getTradeLegs().stream())
-    //     //                                     .filter(Objects::nonNull)
-    //     //                                     .map(leg -> leg.getNotional() == null ? BigDecimal.ZERO : leg.getNotional())
-    //     //                                     .reduce(BigDecimal.ZERO, BigDecimal::add);
+        // Total notional (sum across all legs)
+        BigDecimal totalNotional = listOfUsersTrades.stream()
+                .flatMap(trade -> trade.getTradeLegs().stream())
+                .filter(Objects::nonNull)
+                .map(leg -> leg.getNotional() == null ? BigDecimal.ZERO : leg.getNotional())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        dailySummary.setTodaysNotional(totalNotional);
 
-    //     //                             BookActivitySummary summary = new BookActivitySummary();
-    //     //                             summary.setTradeCount(count);
-    //     //                             summary.setTotalNotional(bookNotional);
-    //     //                         }
-    //     //                 )
-    //     //         )); 
-    //     dailySummary.setBookActivitySummary(new BookActivitySummary());
+        // Trades by book
+        Map<String, Long> tradesByBook = listOfUsersTrades.stream()
+            .filter(trade -> trade.getBook() != null)
+            .collect(Collectors.groupingBy(
+                trade -> trade.getBook().getBookName().toUpperCase(),
+                Collectors.counting()
+            ));
+        dailySummary.setTradesByBook(tradesByBook);
 
-    //     dailySummaryRepository.save(dailySummary);
-    //     return dailySummary;
-    // }
+        // Notional by book
+        Map<String, BigDecimal> notionalByBook = listOfUsersTrades.stream()
+            .filter(trade -> trade.getBook() != null)
+            .collect(Collectors.groupingBy(
+                trade -> trade.getBook().getBookName().toUpperCase(),
+                Collectors.reducing(
+                    BigDecimal.ZERO,
+                    trade -> trade.getTradeLegs().stream()
+                        .map(leg -> leg.getNotional() == null ? BigDecimal.ZERO : leg.getNotional())
+                        .reduce(BigDecimal.ZERO, BigDecimal::add),
+                    BigDecimal::add
+                )
+            ));
+        dailySummary.setNotionalByBook(notionalByBook);
+
+        // Find User so I can get the id
+        ApplicationUser user = applicationUserRepository.findByLoginId(userId)
+            .orElseThrow(() -> {
+                    logger.warn("User not found: {}", userId);
+                    return new RuntimeException("User not found with login ID: " + userId);
+                });
+        dailySummary.setTraderUser(user);
+        
+        // Find the summary of the previous day
+        Optional<DailySummary> previousDayOpt = dailySummaryRepository.findByTraderUser_IdAndSummaryDate(user.getId(), LocalDate.now().minusDays(1));
+        
+        if (previousDayOpt.isPresent()) {
+            DailySummary previousSummary = previousDayOpt.get();
+
+            dailySummary.setPreviousDayNotional(previousSummary.getTodaysNotional());
+            dailySummary.setPreviousDayTradeCount(previousSummary.getTodaysTradeCount());
+
+            // Calculate % change
+            BigDecimal notionalChange = previousSummary.getTodaysNotional().compareTo(BigDecimal.ZERO) == 0
+                ? BigDecimal.ZERO
+                : dailySummary.getTodaysNotional()
+                    .subtract(previousSummary.getTodaysNotional())
+                    .divide(previousSummary.getTodaysNotional(), 2, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100));
+
+            BigDecimal tradeCountChange = previousSummary.getTodaysTradeCount() == 0
+                ? BigDecimal.ZERO
+                : BigDecimal.valueOf(
+                    ((double) (dailySummary.getTodaysTradeCount() - previousSummary.getTodaysTradeCount())
+                    / previousSummary.getTodaysTradeCount()) * 100
+                );
+
+            dailySummary.setNotionalChangePercentage(notionalChange);
+            dailySummary.setTradeCountChangePercentage(tradeCountChange);
+        }
+
+        dailySummaryRepository.save(dailySummary);
+        return dailySummary;
+    }
 }

@@ -92,16 +92,16 @@ public class TradeDashboardController {
         return ResponseEntity.ok(tradeDashboardService.getTradeSummaryForUser(userId));
     }
 
-    // @GetMapping("/daily-summary")
-    // @Operation(summary = "Get daily trading statistics",
-    //            description = "Retrieves a list of daily summary statistics")
-    // @ApiResponses(value = {
-    //     @ApiResponse(responseCode = "200", description = "Successfully retrieved daily summary statistics",
-    //                 content = @Content(mediaType = "application/json",
-    //                                  schema = @Schema(implementation = TradeDTO.class))),
-    //     @ApiResponse(responseCode = "500", description = "Internal server error")
-    // })
-    // public ResponseEntity<DailySummaryDTO> getDailySummary(@RequestParam Long userId) {
-    //     return ResponseEntity.ok(tradeDashboardService.getDailySummaryForUser(userId));
-    // }
+    @GetMapping("/daily-summary")
+    @Operation(summary = "Get daily trading statistics",
+               description = "Retrieves a list of daily summary statistics")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Successfully retrieved daily summary statistics",
+                    content = @Content(mediaType = "application/json",
+                                     schema = @Schema(implementation = TradeDTO.class))),
+        @ApiResponse(responseCode = "500", description = "Internal server error")
+    })
+    public ResponseEntity<DailySummaryDTO> getDailySummary(@RequestParam String userId) {
+        return ResponseEntity.ok(tradeDashboardService.getDailySummaryForUser(userId));
+    }
 }
