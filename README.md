@@ -1,5 +1,19 @@
 # Trading Application Technical Challenge
 
+
+-----------
+-----------
+
+# PLEASE READ docs/enhancements.md AND doc/test-fixes-template.md TO SEE MY WRITE-UPS
+
+## Kind regards,
+
+## Adeola
+
+-------------
+------------
+------------
+--------------
 ## Welcome to the Challenge!
 
 This technical challenge is designed to assess your software development skills across multiple domains including backend development, frontend integration, debugging, full-stack feature implementation, and cloud architecture understanding.
