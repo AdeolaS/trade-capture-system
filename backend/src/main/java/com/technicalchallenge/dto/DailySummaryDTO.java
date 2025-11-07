@@ -4,8 +4,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Map;
 
-import com.technicalchallenge.model.BookActivitySummary;
-
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -31,4 +29,9 @@ public class DailySummaryDTO {
     private int previousDayTradeCount;
     private BigDecimal notionalChangePercentage;
     private BigDecimal tradeCountChangePercentage;
+
+    private BigDecimal avgTradeCount30Days;
+    private BigDecimal avgNotional30Days;
+    private BigDecimal notionalChange30Days;
+    private BigDecimal tradeCountChange30Days;
 }

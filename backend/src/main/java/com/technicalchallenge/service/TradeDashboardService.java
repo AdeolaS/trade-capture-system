@@ -27,6 +27,7 @@ import com.technicalchallenge.model.BookActivitySummary;
 import com.technicalchallenge.model.Counterparty;
 import com.technicalchallenge.model.DailySummary;
 import com.technicalchallenge.model.Trade;
+import com.technicalchallenge.model.TradeLeg;
 import com.technicalchallenge.model.TradeStatus;
 import com.technicalchallenge.model.TradeSummary;
 import com.technicalchallenge.model.TradeType;
@@ -293,10 +294,15 @@ public class TradeDashboardService {
 
         // Total notional (sum across all legs)
         BigDecimal totalNotional = listOfUsersTrades.stream()
-                .flatMap(trade -> trade.getTradeLegs().stream())
-                .filter(Objects::nonNull)
-                .map(leg -> leg.getNotional() == null ? BigDecimal.ZERO : leg.getNotional())
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+            .filter(Objects::nonNull)
+            .flatMap(trade -> {
+                if (trade.getTradeLegs() == null) {
+                    return java.util.stream.Stream.empty();
+                }
+                return trade.getTradeLegs().stream().filter(Objects::nonNull);
+            })
+            .map(leg -> leg.getNotional() == null ? BigDecimal.ZERO : leg.getNotional())
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
         dailySummary.setTodaysNotional(totalNotional);
 
         // Trades by book
@@ -310,17 +316,17 @@ public class TradeDashboardService {
 
         // Notional by book
         Map<String, BigDecimal> notionalByBook = listOfUsersTrades.stream()
-            .filter(trade -> trade.getBook() != null)
-            .collect(Collectors.groupingBy(
-                trade -> trade.getBook().getBookName().toUpperCase(),
-                Collectors.reducing(
-                    BigDecimal.ZERO,
-                    trade -> trade.getTradeLegs().stream()
-                        .map(leg -> leg.getNotional() == null ? BigDecimal.ZERO : leg.getNotional())
-                        .reduce(BigDecimal.ZERO, BigDecimal::add),
-                    BigDecimal::add
-                )
-            ));
+    .filter(trade -> trade.getBook() != null)
+    .collect(Collectors.groupingBy(
+        trade -> trade.getBook().getBookName().toUpperCase(),
+        Collectors.reducing(
+            BigDecimal.ZERO,
+            trade -> (trade.getTradeLegs() == null ? List.<TradeLeg>of() : trade.getTradeLegs()).stream()
+                .map(leg -> leg.getNotional() == null ? BigDecimal.ZERO : leg.getNotional())
+                .reduce(BigDecimal.ZERO, BigDecimal::add),
+            BigDecimal::add
+        )
+    ));
         dailySummary.setNotionalByBook(notionalByBook);
 
         // Find User so I can get the id
@@ -359,6 +365,42 @@ public class TradeDashboardService {
             dailySummary.setTradeCountChangePercentage(tradeCountChange);
         }
 
+        LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
+        List<DailySummary> last30Days =
+            dailySummaryRepository.findByTraderUser_IdAndSummaryDateBetween(
+                user.getId(), thirtyDaysAgo, LocalDate.now().minusDays(1));
+
+        if (!last30Days.isEmpty()) {
+            BigDecimal avgNotional30Days = last30Days.stream()
+                .map(DailySummary::getTodaysNotional)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add)
+                .divide(BigDecimal.valueOf(last30Days.size()), 2, RoundingMode.HALF_UP);
+
+            double avgTradeCount30Days = last30Days.stream()
+                .mapToInt(DailySummary::getTodaysTradeCount)
+                .average()
+                .orElse(0);
+
+            BigDecimal notionalChange30Days = avgNotional30Days.compareTo(BigDecimal.ZERO) == 0
+                ? BigDecimal.ZERO
+                : dailySummary.getTodaysNotional()
+                    .subtract(avgNotional30Days)
+                    .divide(avgNotional30Days, 2, RoundingMode.HALF_UP)
+                    .multiply(BigDecimal.valueOf(100));
+
+            BigDecimal tradeCountChange30Days = avgTradeCount30Days == 0
+                ? BigDecimal.ZERO
+                : BigDecimal.valueOf(((double)
+                    (dailySummary.getTodaysTradeCount() - avgTradeCount30Days)
+                    / avgTradeCount30Days) * 100);
+
+            dailySummary.setAvgNotional30Days(avgNotional30Days);
+            dailySummary.setAvgTradeCount30Days(BigDecimal.valueOf(avgTradeCount30Days));
+            dailySummary.setNotionalChange30Days(notionalChange30Days);
+            dailySummary.setTradeCountChange30Days(tradeCountChange30Days);
+        }
+        
         dailySummaryRepository.save(dailySummary);
         return dailySummary;
     }

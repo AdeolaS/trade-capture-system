@@ -64,4 +64,9 @@ public class DailySummary {
     private int previousDayTradeCount;
     private BigDecimal notionalChangePercentage;
     private BigDecimal tradeCountChangePercentage;
+
+    private BigDecimal avgTradeCount30Days;
+    private BigDecimal avgNotional30Days;
+    private BigDecimal notionalChange30Days;
+    private BigDecimal tradeCountChange30Days;
 }

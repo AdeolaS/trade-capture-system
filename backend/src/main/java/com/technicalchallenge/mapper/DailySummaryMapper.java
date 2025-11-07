@@ -30,6 +30,11 @@ public class DailySummaryMapper {
         dto.setNotionalChangePercentage(dailySummary.getNotionalChangePercentage());
         dto.setTradeCountChangePercentage(dailySummary.getTradeCountChangePercentage());
 
+        dto.setAvgNotional30Days(dailySummary.getAvgNotional30Days());
+        dto.setAvgTradeCount30Days(dailySummary.getAvgTradeCount30Days());
+        dto.setNotionalChange30Days(dailySummary.getNotionalChange30Days());
+        dto.setTradeCountChange30Days(dailySummary.getTradeCountChange30Days());
+
         return dto;
     }
 
@@ -51,6 +56,11 @@ public class DailySummaryMapper {
         dailySummary.setPreviousDayTradeCount(dto.getPreviousDayTradeCount());
         dailySummary.setNotionalChangePercentage(dto.getNotionalChangePercentage());
         dailySummary.setTradeCountChangePercentage(dto.getTradeCountChangePercentage());
+
+        dailySummary.setAvgNotional30Days(dto.getAvgNotional30Days());
+        dailySummary.setAvgTradeCount30Days(dto.getAvgTradeCount30Days());
+        dailySummary.setNotionalChange30Days(dto.getNotionalChange30Days());
+        dailySummary.setTradeCountChange30Days(dto.getTradeCountChange30Days());
 
         return dailySummary;
     }

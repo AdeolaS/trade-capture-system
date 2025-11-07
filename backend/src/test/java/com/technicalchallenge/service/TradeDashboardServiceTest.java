@@ -2,12 +2,15 @@ package com.technicalchallenge.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,12 +30,14 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.technicalchallenge.dto.DailySummaryDTO;
 import com.technicalchallenge.dto.TradeSummaryDTO;
 import com.technicalchallenge.mapper.TradeSummaryMapper;
 import com.technicalchallenge.model.ApplicationUser;
 import com.technicalchallenge.model.Book;
 import com.technicalchallenge.model.Counterparty;
 import com.technicalchallenge.model.Currency;
+import com.technicalchallenge.model.DailySummary;
 import com.technicalchallenge.model.PayRec;
 import com.technicalchallenge.model.Trade;
 import com.technicalchallenge.model.TradeLeg;
@@ -106,18 +111,25 @@ public class TradeDashboardServiceTest {
         activeBook.setBookName("EQUITY-DESK");
         activeBook.setActive(true);
 
-        trade = new Trade();
-        trade.setTradeId(101L);
-        trade.setBook(activeBook);
-
         inactiveBook = new Book();
         inactiveBook.setId(1L);
         inactiveBook.setBookName("RATES-BOOK");
         inactiveBook.setActive(false);
 
+        TradeLeg leg1 = new TradeLeg();
+        leg1.setNotional(new BigDecimal("100.00"));
+        TradeLeg leg2 = new TradeLeg();
+        leg2.setNotional(new BigDecimal("200.00"));
+        
+        trade = new Trade();
+        trade.setTradeId(101L);
+        trade.setBook(activeBook);
+        trade.setTradeLegs(List.of(leg1));
+
         trade2 = new Trade();
         trade2.setTradeId(101L);
         trade2.setBook(activeBook);
+        trade2.setTradeLegs(List.of(leg2));
     }
 
     @Test
@@ -413,29 +425,225 @@ public class TradeDashboardServiceTest {
         // === Assert ===
         assertNotNull(result);
 
-        // ✅ Status counts: NEW=1, CANCELLED=1
+        // Status counts: NEW=1, CANCELLED=1
         assertEquals(2, result.getTradeCountByStatus().size());
         assertEquals(1L, result.getTradeCountByStatus().get("NEW"));
         assertEquals(1L, result.getTradeCountByStatus().get("CANCELLED"));
 
-        // ✅ Trade type counts: SPOT=2
+        // Trade type counts: SPOT=2
         assertEquals(1, result.getTradeCountByTradeType().size());
         assertEquals(2L, result.getTradeCountByTradeType().get("SPOT"));
 
-        // ✅ Counterparty counts: BankA=1, BankB=1
+        // Counterparty counts: BankA=1, BankB=1
         assertEquals(2, result.getTradeCountByCounterparty().size());
         assertEquals(1L, result.getTradeCountByCounterparty().get("BANKA"));
         assertEquals(1L, result.getTradeCountByCounterparty().get("BANKB"));
 
-        // ✅ Total notional by currency: USD = 1000 + 500 + 1000 = 2500
+        // Total notional by currency: USD = 1000 + 500 + 1000 = 2500
         assertEquals(BigDecimal.valueOf(2500),
                 result.getTotalNotionalByCurrency().get("USD"));
 
-        // ✅ Risk exposure by book:
+        // Risk exposure by book:
         // Book "EQUITY-DESK" = RECEIVE(500) - PAY(1000 + 1000) = -1500
         BigDecimal exposure = result.getRiskExposure().get("EQUITY-DESK");
         assertEquals(BigDecimal.valueOf(-1500), exposure);
     }
+
+    // Helper methods for Daily Summary Tests
+
+    private DailySummary previousDaySummary() {
+        DailySummary prev = new DailySummary();
+        prev.setTodaysNotional(new BigDecimal("50.00"));
+        prev.setTodaysTradeCount(1);
+        return prev;
+    }
+
+    private List<DailySummary> last30DaysSummaries() {
+        DailySummary s1 = new DailySummary();
+        s1.setTodaysNotional(new BigDecimal("200.00"));
+        s1.setTodaysTradeCount(1);
+        DailySummary s2 = new DailySummary();
+        s2.setTodaysNotional(new BigDecimal("100.00"));
+        s2.setTodaysTradeCount(3);
+        return List.of(s1, s2);
+    }
+
+    @Test
+    void testGetDailySummaryForUser_WithPreviousDayAnd30DayStats() {
+        // Arrange
+        when(applicationUserRepository.findByLoginId("user123"))
+                .thenReturn(Optional.of(activeUser));
+
+        when(dailySummaryRepository.findByTraderUser_IdAndSummaryDate(
+                eq(15L), any(LocalDate.class)))
+                .thenReturn(Optional.of(previousDaySummary()));
+
+        when(dailySummaryRepository.findByTraderUser_IdAndSummaryDateBetween(
+                eq(15L), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(last30DaysSummaries());
+
+        // Mock current trades returned by getPersonalTrades()
+        TradeDashboardService spyService = spy(tradeDashboardService);
+        doReturn(List.of(trade, trade2))
+                .when(spyService).getPersonalTrades("user123");
+
+        // Act
+        DailySummaryDTO resultDto = spyService.getDailySummaryForUser("user123");
+
+        // Assert
+        assertNotNull(resultDto);
+        assertEquals(LocalDate.now(), resultDto.getSummaryDate());
+        assertEquals(2, resultDto.getTodaysTradeCount());
+        assertEquals(new BigDecimal("300.00"), resultDto.getTodaysNotional());
+
+        // Verify book breakdown
+        assertEquals(1, resultDto.getTradesByBook().size());
+        assertEquals(2L, resultDto.getTradesByBook().get("EQUITY-DESK"));
+        assertEquals(new BigDecimal("300.00"), resultDto.getNotionalByBook().get("EQUITY-DESK"));
+
+        // Verify previous-day comparison
+        assertEquals(new BigDecimal("50.00"), resultDto.getPreviousDayNotional());
+        assertEquals(1, resultDto.getPreviousDayTradeCount());
+        assertNotNull(resultDto.getNotionalChangePercentage());
+        assertNotNull(resultDto.getTradeCountChangePercentage());
+
+        // Verify 30-day averages and changes
+        assertEquals(new BigDecimal("150.00"), resultDto.getAvgNotional30Days());
+        assertEquals(new BigDecimal("2.0"), resultDto.getAvgTradeCount30Days());
+        assertNotNull(resultDto.getNotionalChange30Days());
+        assertNotNull(resultDto.getTradeCountChange30Days());
+
+        verify(dailySummaryRepository).save(any(DailySummary.class));
+    }
+
+    @Test
+    void testGetDailySummaryForUser_NoPreviousDay() {
+        when(applicationUserRepository.findByLoginId("user123"))
+                .thenReturn(Optional.of(activeUser));
+
+        // No previous day found
+        when(dailySummaryRepository.findByTraderUser_IdAndSummaryDate(eq(15L), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+
+        // Some 30-day data still exists
+        when(dailySummaryRepository.findByTraderUser_IdAndSummaryDateBetween(eq(15L), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(last30DaysSummaries());
+
+        TradeDashboardService spyService = spy(tradeDashboardService);
+        doReturn(List.of(trade))
+                .when(spyService).getPersonalTrades("user123");
+
+        DailySummaryDTO result = spyService.getDailySummaryForUser("user123");
+
+        assertNotNull(result);
+        assertEquals(1, result.getTodaysTradeCount());
+        assertNull(result.getPreviousDayNotional(), "Should not have previous-day data");
+        assertNotNull(result.getAvgNotional30Days(), "Should still calculate 30-day average");
+
+        verify(dailySummaryRepository).save(any(DailySummary.class));
+    }
+
+    @Test
+    void testGetDailySummaryForUser_No30DayData() {
+        when(applicationUserRepository.findByLoginId("user123"))
+                .thenReturn(Optional.of(activeUser));
+
+        when(dailySummaryRepository.findByTraderUser_IdAndSummaryDate(eq(15L), any(LocalDate.class)))
+                .thenReturn(Optional.of(previousDaySummary()));
+
+        // No 30-day summaries
+        when(dailySummaryRepository.findByTraderUser_IdAndSummaryDateBetween(eq(15L), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of());
+
+        TradeDashboardService spyService = spy(tradeDashboardService);
+        doReturn(List.of(trade))
+                .when(spyService).getPersonalTrades("user123");
+
+        DailySummaryDTO result = spyService.getDailySummaryForUser("user123");
+
+        assertNotNull(result);
+        assertEquals(1, result.getTodaysTradeCount());
+        assertEquals(new BigDecimal("50.00"), result.getPreviousDayNotional());
+        assertNull(result.getAvgNotional30Days(), "No 30-day data should result in null");
+        verify(dailySummaryRepository).save(any(DailySummary.class));
+    }
+
+    @Test
+    void testGetDailySummaryForUser_UserNotFound() {
+        when(applicationUserRepository.findByLoginId("missingUser"))
+                .thenReturn(Optional.empty());
+
+        TradeDashboardService spyService = spy(tradeDashboardService);
+        doReturn(List.of(trade))
+                .when(spyService).getPersonalTrades("missingUser");
+
+        RuntimeException ex = assertThrows(RuntimeException.class,
+                () -> spyService.getDailySummaryForUser("missingUser"));
+
+        assertTrue(ex.getMessage().contains("User not found"));
+        verify(dailySummaryRepository, never()).save(any());
+    }
+
+    @Test
+    void testGetDailySummaryForUser_TradesWithNullLegsOrNotional() {
+        when(applicationUserRepository.findByLoginId("user123"))
+                .thenReturn(Optional.of(activeUser));
+
+        when(dailySummaryRepository.findByTraderUser_IdAndSummaryDate(eq(15L), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+        when(dailySummaryRepository.findByTraderUser_IdAndSummaryDateBetween(eq(15L), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of());
+
+        // Trade with null leg
+        Trade tradeWithNullLeg = new Trade();
+        tradeWithNullLeg.setBook(activeBook);
+        tradeWithNullLeg.setTradeLegs(List.of((TradeLeg) null));
+
+        // Trade with leg that has null notional
+        TradeLeg legWithNullNotional = new TradeLeg();
+        legWithNullNotional.setNotional(null);
+        Trade tradeWithNullNotional = new Trade();
+        tradeWithNullNotional.setBook(activeBook);
+        tradeWithNullNotional.setTradeLegs(List.of(legWithNullNotional));
+
+        TradeDashboardService spyService = spy(tradeDashboardService);
+        doReturn(List.of(tradeWithNullLeg, tradeWithNullNotional))
+                .when(spyService).getPersonalTrades("user123");
+
+        DailySummaryDTO result = spyService.getDailySummaryForUser("user123");
+
+        assertEquals(2, result.getTodaysTradeCount());
+        assertEquals(BigDecimal.ZERO, result.getTodaysNotional(), "Null notionals should sum to zero");
+    }
+
+    @Test
+    void testGetDailySummaryForUser_TradesWithNullBook() {
+        when(applicationUserRepository.findByLoginId("user123"))
+                .thenReturn(Optional.of(activeUser));
+
+        when(dailySummaryRepository.findByTraderUser_IdAndSummaryDate(eq(15L), any(LocalDate.class)))
+                .thenReturn(Optional.empty());
+        when(dailySummaryRepository.findByTraderUser_IdAndSummaryDateBetween(eq(15L), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of());
+
+        Trade tradeWithoutBook = new Trade();
+        tradeWithoutBook.setBook(null);
+        TradeLeg leg = new TradeLeg();
+        leg.setNotional(new BigDecimal("500"));
+        tradeWithoutBook.setTradeLegs(List.of(leg));
+
+        TradeDashboardService spyService = spy(tradeDashboardService);
+        doReturn(List.of(tradeWithoutBook))
+                .when(spyService).getPersonalTrades("user123");
+
+        DailySummaryDTO result = spyService.getDailySummaryForUser("user123");
+
+        assertEquals(1, result.getTodaysTradeCount());
+        assertEquals(new BigDecimal("500"), result.getTodaysNotional());
+        assertTrue(result.getTradesByBook().isEmpty(), "Null book should be excluded from grouping");
+    }
+
+
 
 
    
