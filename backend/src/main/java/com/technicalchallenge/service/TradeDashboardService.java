@@ -152,7 +152,7 @@ public class TradeDashboardService {
             throw new RuntimeException("User is inactive: " + traderLoginId);
         }
 
-        List<TradeSummary> tradeSummaries = tradeSummaryRepository.findByTraderUser_IdAndSummaryDateStamp();
+        List<TradeSummary> tradeSummaries = tradeSummaryRepository.findByTraderUser_IdAndSummaryDateStamp(user.getId(), date);
         List<TradeSummaryDTO> tradeSummaryDTOs = tradeSummaries
             .stream()
             .map(tradeSummaryMapper::toDto)
