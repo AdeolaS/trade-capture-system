@@ -642,9 +642,5 @@ public class TradeDashboardServiceTest {
         assertEquals(new BigDecimal("500"), result.getTodaysNotional());
         assertTrue(result.getTradesByBook().isEmpty(), "Null book should be excluded from grouping");
     }
-
-
-
-
    
 }
