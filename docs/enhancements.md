@@ -25,6 +25,7 @@ With this endpoint, users can search for trades by trade status, book, counterpa
 - I Validate the search parameters in TradeService.validateSearchParameters(). I check for things such as the earliest date being before the latest date, and certain parameters existing in the database.
 - Any error messages from the validation method are collected in a String and thrown as a RuntimeException to the TradeController. I chose to implement it this way for ease of use on the user’s side. Collecting all the errors at the end of the checks and giving them all to the user at once means that there’ll be less back-and-forth fixing of errors if the user has input many invalid values.
 - The list of trades (or error message) is returned as a response entity from the controller method.
+- Improvements for the future: At the moment, I can only search for one type of book, counterparty or trade status at a time. If I had more time, I would allow multiple inputs for each parameter to be accepted.
 
 ### (“/filter”)
 With this endpoint, users can search for all trades. The trades will be paginated according to the input parameters, with default values provided.
@@ -83,6 +84,7 @@ IMPLEMENTATION
 - In the version of the method without a TradeDTO being passed in, true is returned.
 - In the version with the DTO passed in, there is then an extra set of checks: If the ID of the user requesting permission is different from the ID of the user who created the trade AND the user has a trader or sales role, then false is returned.
 - In each controller method, I added userID as a parameter and added a call to validateUserPrivileges on the first line. This way, the check is done straight away. 
+- Improvements for the future: In my current implementation, the userID is being passed around as a parameter, which is extremely insecure. To improve this, I could use a system such as Spring Security. For this project, I chose not to implement it since I wanted to aim on the implementation of the methods asked of us.
 
 ### Cross-Leg Business Rules: public ValidationResult validateTradeLegConsistency(List<TradeLegDTO> legs)
 This method ensures that both legs have identical maturity dates, Legs have opposite pay/receive flags, floating legs have an index specified and that fixed legs have a valid rate. This method also ensures that any leg-related reference data exists and is valid. 
