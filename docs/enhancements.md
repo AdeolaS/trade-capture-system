@@ -65,20 +65,24 @@ Tests for when each date, or all dates are null
 Test for when the dates are invalid
 Used parameterised tests for the dates to test different scenarios
 
+### User Privilege Enforcement: public boolean validateUserPrivileges(String userId, String operation, TradeDTO tradeDTO)
+For this enhancement, I’ve implemented a system that allows users to only perform actions which they are authorised to perform. I’ve overloaded the validateUserPrivileges method to accept different parameters. 
+- The version without a TradeDTO passed in is used for VIEW operations only.
+- And the version with a TradeDTO passed in is used for all other operations, where it is required to create or operate on an existing trade.
 
+GENERAL NOTES
+- In the data.sql file, the trader and sales roles were combined into a single role. Since the specification asked for roles to have separate privileges, I replaced the TRADER_SALES role with separate TRADER and SALES. 
+- Users with trader or sales roles don’t have permission to view trades using the “/trade” endpoints. They will need to use the trader dashboard endpoints.
+- All other users have the ability to view any user’s sales, as required by the nature of their jobs.
 
-
-
-
-
-
-
-
-
-
-
-
-
+IMPLEMENTATION
+- I defined a map containing the user types with their corresponding privileges. I made it static so it belongs to the whole class.
+- The validation method first checks that the user exists, and then checks that the user is active.
+- It then gets the user’s profile type, e.g ADMIN, MO, SUPPORT and returns a list of the user’s allowed permissions (as defined by the aforementioned map)
+- If the desired operation is on the list of permitted operations, then the isAllowed Boolean is set to true.
+- In the version of the method without a TradeDTO being passed in, true is returned.
+- In the version with the DTO passed in, there is then an extra set of checks: If the ID of the user requesting permission is different from the ID of the user who created the trade AND the user has a trader or sales role, then false is returned.
+- In each controller method, I added userID as a parameter and added a call to validateUserPrivileges on the first line. This way, the check is done straight away. 
 
 ### Cross-Leg Business Rules: public ValidationResult validateTradeLegConsistency(List<TradeLegDTO> legs)
 This method ensures that both legs have identical maturity dates, Legs have opposite pay/receive flags, floating legs have an index specified and that fixed legs have a valid rate. This method also ensures that any leg-related reference data exists and is valid. 

@@ -45,17 +45,24 @@ public class TradeDashboardController {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved Trader's personal trades",
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
+        @ApiResponse(responseCode = "404", description = "Invalid Trader User"),
         @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<List<TradeDTO>> getPersonalTrades(@RequestParam String userId) {
+    public ResponseEntity<?> getPersonalTrades(@RequestParam String userId) {
         logger.info("Fetching trades for user");
 
-        List<TradeDTO> listOfTradeDTOs = tradeDashboardService.getPersonalTrades(userId)
+        try {
+            List<TradeDTO> listOfTradeDTOs = tradeDashboardService.getPersonalTrades(userId)
             .stream()
             .map(tradeMapper::toDto)
             .toList();
         
-        return ResponseEntity.ok().body(listOfTradeDTOs);
+            return ResponseEntity.ok().body(listOfTradeDTOs);
+        } catch (Exception e) {     
+            logger.error("Error fetching trades: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body("Error fetching trades: " + e.getMessage());
+        }
+        
     }
     
     @GetMapping("/book/{id}/trades")
@@ -65,18 +72,23 @@ public class TradeDashboardController {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved Trader's  trades",
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
+        @ApiResponse(responseCode = "404", description = "Invalid Trader User or Book"),
         @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<List<TradeDTO>> getTradesByBook(@PathVariable String id, @RequestParam String userId) {
+    public ResponseEntity<?> getTradesByBook(@PathVariable String id, @RequestParam String userId) {
         logger.info("Fetching trades by book for user");
 
-        // List<TradeDTO> listOfTradeDTOs = tradeDashboardService.getPersonalTrades(userId)
-        List<TradeDTO> listOfTradeDTOs = tradeDashboardService.getTradesByBook(id, userId)
-            .stream()
-            .map(tradeMapper::toDto)
-            .toList();
+        try {
+            List<TradeDTO> listOfTradeDTOs = tradeDashboardService.getTradesByBook(id, userId)
+                .stream()
+                .map(tradeMapper::toDto)
+                .toList();
 
-        return ResponseEntity.ok(listOfTradeDTOs);
+            return ResponseEntity.ok(listOfTradeDTOs);  
+        } catch (Exception e) {
+            logger.error("Error fetching trades: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body("Error fetching trades: " + e.getMessage());
+        }  
     }
 
     @GetMapping("/summary")
@@ -86,10 +98,16 @@ public class TradeDashboardController {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved trade portfolio summaries",
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
+        @ApiResponse(responseCode = "404", description = "Invalid Trader User"),
         @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<TradeSummaryDTO> getTradeSummary(@RequestParam String userId) {
-        return ResponseEntity.ok(tradeDashboardService.getTradeSummaryForUser(userId));
+    public ResponseEntity<?> getTradeSummary(@RequestParam String userId) {
+        try {
+            return ResponseEntity.ok(tradeDashboardService.getTradeSummaryForUser(userId));
+        } catch (Exception e) {
+            logger.error("Error fetching trades: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body("Error fetching trades: " + e.getMessage());
+        }
     }
 
     @GetMapping("/daily-summary")
@@ -99,9 +117,15 @@ public class TradeDashboardController {
         @ApiResponse(responseCode = "200", description = "Successfully retrieved daily summary statistics",
                     content = @Content(mediaType = "application/json",
                                      schema = @Schema(implementation = TradeDTO.class))),
+        @ApiResponse(responseCode = "404", description = "Invalid Trader User"),
         @ApiResponse(responseCode = "500", description = "Internal server error")
     })
-    public ResponseEntity<DailySummaryDTO> getDailySummary(@RequestParam String userId) {
-        return ResponseEntity.ok(tradeDashboardService.getDailySummaryForUser(userId));
+    public ResponseEntity<?> getDailySummary(@RequestParam String userId) {
+        try {
+            return ResponseEntity.ok(tradeDashboardService.getDailySummaryForUser(userId));
+        } catch (Exception e) {
+            logger.error("Error fetching trades: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest().body("Error fetching trades: " + e.getMessage());
+        }        
     }
 }

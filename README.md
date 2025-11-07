@@ -4,7 +4,7 @@
 -----------
 -----------
 
-# PLEASE READ docs/enhancements.md AND doc/test-fixes-template.md TO SEE MY WRITE-UPS
+# Please refer to docs/enhancements.md AND doc/test-fixes-template.md to see my write-ups
 
 ## Kind regards,
 

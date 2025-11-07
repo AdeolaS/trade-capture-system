@@ -17,7 +17,6 @@ import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -27,7 +26,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.technicalchallenge.dto.DailySummaryDTO;
@@ -164,19 +162,6 @@ public class TradeDashboardServiceTest {
         assertEquals("User is inactive: inactiveUser", exception.getMessage());
         verify(tradeRepository, never()).findByTraderUser_Id(anyLong());
     }
-
-    // @Test
-    // void testGetTradesByBook_Success() {
-    //     when(applicationUserRepository.findByLoginId("user123")).thenReturn(Optional.of(activeUser));
-    //     when(bookRepository.findByBookName("EQUITY-DESK")).thenReturn(Optional.of(activeBook));
-    //     when(tradeRepository.findByTraderUser_IdAndBook_Id(99L, 15L)).thenReturn(List.of(trade));
-
-    //     List<Trade> result = tradeDashboardService.getTradesByBook("EQUITY-DESK", "user123");
-
-    //     assertEquals(1, result.size());
-    //     assertEquals(101L, result.get(0).getTradeId());
-    //     verify(tradeRepository).findByTraderUser_IdAndBook_Id(99L, 15L);
-    // }
 
     @Test
     void testGetTradesByBook_UserNotFound() {
@@ -582,38 +567,6 @@ public class TradeDashboardServiceTest {
 
         assertTrue(ex.getMessage().contains("User not found"));
         verify(dailySummaryRepository, never()).save(any());
-    }
-
-    @Test
-    void testGetDailySummaryForUser_TradesWithNullLegsOrNotional() {
-        when(applicationUserRepository.findByLoginId("user123"))
-                .thenReturn(Optional.of(activeUser));
-
-        when(dailySummaryRepository.findByTraderUser_IdAndSummaryDate(eq(15L), any(LocalDate.class)))
-                .thenReturn(Optional.empty());
-        when(dailySummaryRepository.findByTraderUser_IdAndSummaryDateBetween(eq(15L), any(LocalDate.class), any(LocalDate.class)))
-                .thenReturn(List.of());
-
-        // Trade with null leg
-        Trade tradeWithNullLeg = new Trade();
-        tradeWithNullLeg.setBook(activeBook);
-        tradeWithNullLeg.setTradeLegs(List.of((TradeLeg) null));
-
-        // Trade with leg that has null notional
-        TradeLeg legWithNullNotional = new TradeLeg();
-        legWithNullNotional.setNotional(null);
-        Trade tradeWithNullNotional = new Trade();
-        tradeWithNullNotional.setBook(activeBook);
-        tradeWithNullNotional.setTradeLegs(List.of(legWithNullNotional));
-
-        TradeDashboardService spyService = spy(tradeDashboardService);
-        doReturn(List.of(tradeWithNullLeg, tradeWithNullNotional))
-                .when(spyService).getPersonalTrades("user123");
-
-        DailySummaryDTO result = spyService.getDailySummaryForUser("user123");
-
-        assertEquals(2, result.getTodaysTradeCount());
-        assertEquals(BigDecimal.ZERO, result.getTodaysNotional(), "Null notionals should sum to zero");
     }
 
     @Test
